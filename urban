@@ -1,11 +1,12 @@
 --[[
-    71 VS — V41.0 CARTOON+ FINALE
+    71 VS — V41.1 MOBILE+ CARTOON
     Fonts: LuckiestGuy + FredokaOne (cartoon)
     UI: Glow cards · Bounce animations · Red theme · Phone layout
     Config: Auto-save · Section moved to VISUAL
+    NEW: Mobile mode (touch aim button) · Speed & Fly removed
 ]]
 
-print("[71 VS V41] Chargement...")
+print("[71 VS V41.1] Chargement...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -18,6 +19,10 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 if not LocalPlayer then warn("[71 VS] LocalPlayer nil") return end
 local Camera = workspace.CurrentCamera
+
+-- 📱 MOBILE DETECTION
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+if IsMobile then print("[71 VS] 📱 Mode MOBILE activé") end
 
 pcall(function()
     local old = CoreGui:FindFirstChild("71VSPanel")
@@ -50,7 +55,7 @@ local DEFAULT_CONFIG = {
     Aimbot = false, CamLock = false, StickyAim = true,
     TeamCheck = false, Prediction = 1.0, BulletSpeed = 900,
     FOV = 140, Smooth = 0.15,
-    Speed = false, SpeedValue = 45, Fly = false, FlyValue = 40, InfJump = false,
+    InfJump = false,
     CarFly = false, CarFlySpeed = 120, CarFlyUpSpeed = 80,
     ESPEnabled = false, Zoom = false, ZoomFOV = 20,
     ShootZoomFOV = 15, NormalFOV = 70, ShootZoomOnFire = true,
@@ -106,7 +111,8 @@ LoadConfigFile()
 
 local State = {
     LockedPlayer = nil, LockedPart = nil, HoldLMB = false, HoldRMB = false,
-    SpeedBV = nil, FlyBV = nil, FlyBG = nil, CarBV = nil, CarBG = nil, CarModel = nil,
+    MobileAim = false,
+    CarBV = nil, CarBG = nil, CarModel = nil,
     SavedPotato = {},
 }
 
@@ -151,11 +157,22 @@ local function SameTeam(plr)
     if LocalPlayer.Team and plr.Team then return LocalPlayer.Team == plr.Team end
     return false
 end
-local function IsAiming() return State.HoldLMB or State.HoldRMB end
+local function IsAiming() return State.HoldLMB or State.HoldRMB or State.MobileAim end
 local function GetHead(char) return char and char:FindFirstChild("Head") end
 
+-- 📱 Aim point : center of screen on mobile, mouse pos on PC
+local function GetAimPoint()
+    if IsMobile then
+        local vp = Camera.ViewportSize
+        if vp.X > 0 and vp.Y > 0 then
+            return Vector2.new(vp.X / 2, vp.Y / 2)
+        end
+    end
+    return UserInputService:GetMouseLocation()
+end
+
 local function GetTarget()
-    local mousePos = UserInputService:GetMouseLocation()
+    local mousePos = GetAimPoint()
     local camPos = Camera.CFrame.Position
     if Config.StickyAim and IsAiming() and State.LockedPlayer and IsAlive(State.LockedPlayer) then
         local head = GetHead(State.LockedPlayer.Character)
@@ -218,7 +235,7 @@ end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then State.HoldLMB = false
     elseif input.UserInputType == Enum.UserInputType.MouseButton2 then State.HoldRMB = false end
-    if not State.HoldLMB and not State.HoldRMB then UnlockTarget() end
+    if not State.HoldLMB and not State.HoldRMB and not State.MobileAim then UnlockTarget() end
 end)
 
 local function GetLockHead()
@@ -235,7 +252,9 @@ local function GetLockHead()
 end
 
 local function CamLockStep()
-    if not Config.CamLock or (not State.HoldLMB and not State.HoldRMB) then return end
+    local mobileAimbot = IsMobile and Config.Aimbot
+    if not (Config.CamLock or mobileAimbot) then return end
+    if not IsAiming() then return end
     local plr = State.LockedPlayer
     local head = plr and IsAlive(plr) and plr.Character and plr.Character:FindFirstChild("Head")
     if not head then head = GetLockHead() end
@@ -248,7 +267,9 @@ local function CamLockStep()
 end
 
 local function AimbotStep()
-    if not Config.Aimbot or (not State.HoldLMB and not State.HoldRMB) or Config.CamLock then return end
+    if not Config.Aimbot then return end
+    if IsMobile then return end -- mobile uses CamLockStep (mousemoverel unavailable)
+    if not (State.HoldLMB or State.HoldRMB) or Config.CamLock then return end
     local head = GetLockHead(); if not head or not head.Parent then return end
     local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
     if not onScreen or screenPos.Z <= 0 then return end
@@ -351,48 +372,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character; local hum = GetHum(char); local root = GetRoot(char)
-    if not hum or not root then return end
-    if Config.Speed and not Config.CarFly then
-        if not State.SpeedBV or not State.SpeedBV.Parent then
-            State.SpeedBV = Instance.new("BodyVelocity")
-            State.SpeedBV.MaxForce = Vector3.new(9e4, 0, 9e4)
-            State.SpeedBV.Parent = root
-        end
-        local md = hum.MoveDirection
-        State.SpeedBV.Velocity = md.Magnitude > 0.05 and md * Config.SpeedValue or Vector3.zero
-    elseif State.SpeedBV then State.SpeedBV:Destroy(); State.SpeedBV = nil end
-    if Config.Fly and not Config.CarFly then
-        hum.PlatformStand = true
-        if not State.FlyBV or not State.FlyBV.Parent then
-            State.FlyBV = Instance.new("BodyVelocity")
-            State.FlyBV.MaxForce = Vector3.new(9e4, 9e4, 9e4)
-            State.FlyBV.Parent = root
-        end
-        if not State.FlyBG or not State.FlyBG.Parent then
-            State.FlyBG = Instance.new("BodyGyro")
-            State.FlyBG.MaxTorque = Vector3.new(9e4, 9e4, 9e4)
-            State.FlyBG.P = 2000
-            State.FlyBG.Parent = root
-        end
-        local move = Vector3.zero; local cam = Camera.CFrame
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Z) then move = move + cam.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - cam.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Q) then move = move - cam.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + cam.RightVector end
-        local vel = Vector3.zero
-        if move.Magnitude > 0.1 then vel = move.Unit * Config.FlyValue end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vel = vel + Vector3.new(0, Config.FlyValue, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then vel = vel - Vector3.new(0, Config.FlyValue, 0) end
-        State.FlyBV.Velocity = vel; State.FlyBG.CFrame = cam
-    else
-        if State.FlyBV then State.FlyBV:Destroy(); State.FlyBV = nil end
-        if State.FlyBG then State.FlyBG:Destroy(); State.FlyBG = nil end
-        if not Config.CarFly then hum.PlatformStand = false end
-    end
-end)
-
 UserInputService.JumpRequest:Connect(function()
     if not Config.InfJump then return end
     local hum = GetHum(LocalPlayer.Character)
@@ -400,9 +379,6 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 LocalPlayer.CharacterAdded:Connect(function()
-    if State.SpeedBV then State.SpeedBV:Destroy(); State.SpeedBV = nil end
-    if State.FlyBV then State.FlyBV:Destroy(); State.FlyBV = nil end
-    if State.FlyBG then State.FlyBG:Destroy(); State.FlyBG = nil end
     StopCarFly(); UnlockTarget()
 end)
 
@@ -720,8 +696,11 @@ end
 -- UI
 -- ============================================================
 local BG_IMAGE = "rbxassetid://116890020704841"
-local PHONE_W = 360
-local PHONE_H = 640
+
+-- 📱 Adaptive panel size for phones
+local vpSize = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(360, 640)
+local PHONE_W = math.min(360, math.max(280, math.floor(vpSize.X - 20)))
+local PHONE_H = math.min(640, math.max(400, math.floor(vpSize.Y - 20)))
 local NAV_H = 70
 local HEADER_H = 70
 
@@ -865,7 +844,6 @@ headerLineGrad.Color = ColorSequence.new{
 }
 headerLineGrad.Parent = headerLine
 
--- Animated glow on header line
 task.spawn(function()
     while headerLine.Parent do
         TweenService:Create(headerLine, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
@@ -920,7 +898,7 @@ local sideSub = Instance.new("TextLabel")
 sideSub.Size = UDim2.new(0, 150, 0, 14)
 sideSub.Position = UDim2.new(0, 68, 0, 38)
 sideSub.BackgroundTransparency = 1
-sideSub.Text = "V41.0 · CARTOON+"
+sideSub.Text = IsMobile and "V41.1 · MOBILE+" or "V41.1 · CARTOON+"
 sideSub.TextColor3 = Theme.AccentSoft
 SetFont(sideSub, "Title")
 sideSub.TextSize = 10
@@ -955,22 +933,6 @@ MinBtn.AutoButtonColor = false
 MinBtn.Parent = Header
 Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 11)
 
-local function BounceHover(btn, baseColor)
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            BackgroundColor3 = baseColor,
-            BackgroundTransparency = 0,
-            Size = UDim2.new(0, 38, 0, 38),
-            Position = UDim2.new(btn.Position.X.Scale, btn.Position.X.Offset - 2, btn.Position.Y.Scale, btn.Position.Y.Offset - 2),
-        }):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 34, 0, 34),
-            Position = UDim2.new(btn.Position.X.Scale, btn.Position.X.Offset + 2, btn.Position.Y.Scale, btn.Position.Y.Offset + 2),
-        }):Play()
-    end)
-end
 CloseBtn.MouseEnter:Connect(function()
     TweenService:Create(CloseBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         BackgroundColor3 = Color3.fromRGB(120, 35, 35), BackgroundTransparency = 0
@@ -1067,7 +1029,7 @@ local VisualPage = MakePage("VISUAL")
 
 local PAGE_SUBS = {
     COMBAT = "Aimbot · CamLock",
-    MOVE = "Speed · Fly · Car Fly",
+    MOVE = "Jump · Car Fly",
     VISUAL = "Config · ESP · Zoom · Perf",
 }
 
@@ -1407,12 +1369,20 @@ local function CreateButton(parent, text, color, callback)
     end)
 end
 
+-- Forward declare for mobile button
+local MobileAimBtn = nil
+local function UpdateMobileAimBtn()
+    if MobileAimBtn then
+        MobileAimBtn.Visible = IsMobile and (Config.Aimbot or Config.CamLock)
+    end
+end
+
 -- ============================================================
 -- COMBAT PAGE
 -- ============================================================
 Section(CombatPage, "AIM ASSIST", "🎯")
-CreateToggle(CombatPage, "Cam Lock (100% tête)", Config.CamLock, function(s) Config.CamLock = s end)
-CreateToggle(CombatPage, "Aimbot (souris)", Config.Aimbot, function(s) Config.Aimbot = s end)
+CreateToggle(CombatPage, "Cam Lock (100% tête)", Config.CamLock, function(s) Config.CamLock = s; UpdateMobileAimBtn() end)
+CreateToggle(CombatPage, "Aimbot", Config.Aimbot, function(s) Config.Aimbot = s; UpdateMobileAimBtn() end)
 CreateSlider(CombatPage, "FOV", 40, 400, Config.FOV, function(v) Config.FOV = v end)
 CreateSlider(CombatPage, "Smooth", 0, 50, math.floor((Config.Smooth or 0.15) * 100), function(v) Config.Smooth = v / 100 end)
 CreateSlider(CombatPage, "Prediction %", 0, 200, math.floor((Config.Prediction or 1) * 100), function(v) Config.Prediction = v / 100 end)
@@ -1429,14 +1399,29 @@ CreateToggle(CombatPage, "Anti Delay (tir rapide)", Config.NoDelay, function(s)
     if c then local t = c:FindFirstChildOfClass("Tool"); if t then ApplyWeaponMods(t) end end
 end)
 
+if IsMobile then
+    local mobInfo = Instance.new("Frame")
+    mobInfo.Size = UDim2.new(1, 0, 0, 34)
+    mobInfo.BackgroundColor3 = Theme.Bg2
+    mobInfo.BackgroundTransparency = 0.2
+    mobInfo.BorderSizePixel = 0
+    mobInfo.Parent = CombatPage
+    Instance.new("UICorner", mobInfo).CornerRadius = UDim.new(0, 12)
+    local mlbl = Instance.new("TextLabel")
+    mlbl.Size = UDim2.new(1, -20, 1, 0)
+    mlbl.Position = UDim2.new(0, 12, 0, 0)
+    mlbl.BackgroundTransparency = 1
+    mlbl.Text = "📱 Bouton 🎯 flottant = viser"
+    mlbl.TextColor3 = Theme.TextMuted
+    SetFont(mlbl, "Light"); mlbl.TextSize = 11
+    mlbl.TextXAlignment = Enum.TextXAlignment.Left
+    mlbl.Parent = mobInfo
+end
+
 -- ============================================================
--- MOVE PAGE
+-- MOVE PAGE (Speed & Fly removed)
 -- ============================================================
 Section(MovePage, "PLAYER", "🏃")
-CreateToggle(MovePage, "Speed", Config.Speed, function(s) Config.Speed = s end)
-CreateSlider(MovePage, "Speed Value", 16, 120, Config.SpeedValue, function(v) Config.SpeedValue = v end)
-CreateToggle(MovePage, "Fly", Config.Fly, function(s) Config.Fly = s end)
-CreateSlider(MovePage, "Fly Speed", 16, 120, Config.FlyValue, function(v) Config.FlyValue = v end)
 CreateToggle(MovePage, "Infinite Jump", Config.InfJump, function(s) Config.InfJump = s end)
 
 Section(MovePage, "VEHICLE", "🚗")
@@ -1465,7 +1450,7 @@ hintLbl.TextXAlignment = Enum.TextXAlignment.Left
 hintLbl.Parent = hint
 
 -- ============================================================
--- VISUAL PAGE (avec config en premier)
+-- VISUAL PAGE
 -- ============================================================
 Section(VisualPage, "SAUVEGARDE CONFIG", "💾")
 local configRow = Instance.new("Frame")
@@ -1569,6 +1554,77 @@ CreateButton(VisualPage, "🧹 EXTREME CLEAN", Color3.fromRGB(100, 28, 32), func
     ShowToast("🧹 Clean OK", Color3.fromRGB(220, 120, 50))
 end)
 
+-- ============================================================
+-- 📱 MOBILE AIM BUTTON
+-- ============================================================
+if IsMobile then
+    MobileAimBtn = Instance.new("TextButton")
+    MobileAimBtn.Name = "71VSMobileAim"
+    MobileAimBtn.Size = UDim2.new(0, 88, 0, 88)
+    MobileAimBtn.Position = UDim2.new(1, -108, 0.5, 60)
+    MobileAimBtn.BackgroundColor3 = Theme.Accent
+    MobileAimBtn.BackgroundTransparency = 0.2
+    MobileAimBtn.BorderSizePixel = 0
+    MobileAimBtn.Text = "🎯"
+    MobileAimBtn.Font = Enum.Font.LuckiestGuy
+    MobileAimBtn.TextSize = 34
+    MobileAimBtn.TextColor3 = Color3.new(1, 1, 1)
+    MobileAimBtn.AutoButtonColor = false
+    MobileAimBtn.Active = true
+    MobileAimBtn.Visible = false
+    MobileAimBtn.Parent = ScreenGui
+
+    Instance.new("UICorner", MobileAimBtn).CornerRadius = UDim.new(1, 0)
+    local mGlow = Instance.new("UIStroke", MobileAimBtn)
+    mGlow.Color = Color3.new(1, 1, 1)
+    mGlow.Thickness = 2.5
+    mGlow.Transparency = 0.5
+
+    MobileAimBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            State.MobileAim = true
+            if Config.Aimbot or Config.CamLock then
+                local plr, part = GetTarget()
+                if plr and part then LockTarget(plr, part) end
+            end
+            if Config.Zoom then ApplyZoom(Config.ZoomFOV) end
+            TweenService:Create(MobileAimBtn, TweenInfo.new(0.12), {
+                BackgroundTransparency = 0.05,
+                Size = UDim2.new(0, 96, 0, 96),
+                Position = UDim2.new(1, -112, 0.5, 56),
+            }):Play()
+            TweenService:Create(mGlow, TweenInfo.new(0.12), { Transparency = 0.1 }):Play()
+        end
+    end)
+
+    MobileAimBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            State.MobileAim = false
+            if not State.HoldLMB and not State.HoldRMB then UnlockTarget() end
+            if Config.Zoom then ApplyZoom(Config.NormalFOV or 70) end
+            TweenService:Create(MobileAimBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+                BackgroundTransparency = 0.2,
+                Size = UDim2.new(0, 88, 0, 88),
+                Position = UDim2.new(1, -108, 0.5, 60),
+            }):Play()
+            TweenService:Create(mGlow, TweenInfo.new(0.2), { Transparency = 0.5 }):Play()
+        end
+    end)
+
+    task.spawn(function()
+        while MobileAimBtn.Parent do
+            if MobileAimBtn.Visible then
+                TweenService:Create(mGlow, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Transparency = 0.15 }):Play()
+                task.wait(0.9)
+                TweenService:Create(mGlow, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Transparency = 0.6 }):Play()
+                task.wait(0.9)
+            else task.wait(0.5) end
+        end
+    end)
+end
+
+UpdateMobileAimBtn()
+
 -- FAB REOPEN
 local ReopenBtn = Instance.new("TextButton")
 ReopenBtn.Size = UDim2.new(0, 62, 0, 62)
@@ -1628,53 +1684,3 @@ ReopenBtn.MouseLeave:Connect(function()
 end)
 
 local function ShowPanel() Main.Visible = true; ReopenBtn.Visible = false end
-local function HidePanel() Main.Visible = false; ReopenBtn.Visible = true end
-
-ReopenBtn.MouseButton1Click:Connect(ShowPanel)
-
--- MINIMIZE / CLOSE / DRAG
-local minimized = false
-MinBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    MinBtn.Text = minimized and "+" or "−"
-    Content.Visible = not minimized
-    NavBar.Visible = not minimized
-    pageTitle.Visible = not minimized
-    pageSub.Visible = not minimized
-    local target = minimized and UDim2.new(0, PHONE_W, 0, HEADER_H) or UDim2.new(0, PHONE_W, 0, PHONE_H)
-    TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = target }):Play()
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    SaveConfigNow()
-    HidePanel()
-end)
-
-do
-    local dragging, dragStart, startPos
-    Header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = Main.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        if Main.Visible then HidePanel() else ShowPanel() end
-    end
-end)
-
-print("[71 VS] V41.0 CARTOON+ — Config: " .. CONFIG_FILE)
