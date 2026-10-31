@@ -1,11 +1,12 @@
     -- ============================================================================
-  -- AnonymousHub · PREMIUM GUI EDITION v8 — MAX POWER
-  -- • Design premium : full-pill toggles, soft cards 16-18, accent bars, glass header
+  -- AnonymousHub · PREMIUM GUI EDITION v9 — CRYSTAL
+  -- • Design crystal : glass panels, soft 18–22 cards, full-pill toggles, accent glow
   -- • Quick Actions bar (Disable All / Combat / Farm / Stream / Compact)
   -- • Search · Live counter · Toasts · Favoris ★ · Profiles
   -- • Speed Engine v8 MAX : direct velocity · accel 0.55 · no speed crush · 66/34 · RenderStepped
-  -- • Nouvelles options : No Shadows, Reduce Particles, Smooth Camera, Hit Sound
+  -- • Performance : No Shadows, Reduce Particles, Smooth Camera, Hit Sound, Low Graphics
   -- • Lagger + Bypass retirés du GUI
+  -- • UI v9 : spacing refined, deeper dark palette, better hierarchy, softer glass
   -- LOGIQUE des features existantes intacte
   -- Exécuter dans un environnement Roblox/Luau avec les fonctions de ton executor.
   -- ============================================================================
@@ -564,6 +565,73 @@
       end
     end))
   end
+  -- ===== Early UI SFX (available before modern panel builds) =====
+  do
+    local SoundService = game:GetService("SoundService")
+    if _G.__AnonymousUIClickSound == nil then
+      _G.__AnonymousUIClickSound = true
+    end
+    local lastPlay = 0
+    local pool = {}
+    local function getSound()
+      for i = #pool, 1, -1 do
+        local s = pool[i]
+        if s and s.Parent and not s.IsPlaying then
+          return s
+        end
+        if not s or not s.Parent then
+          table.remove(pool, i)
+        end
+      end
+      local s = Instance.new("Sound")
+      s.Name = "AnonymousUISFX"
+      s.Parent = SoundService
+      pool[#pool + 1] = s
+      return s
+    end
+    local function playUiSfx(id, vol, speed)
+      if _G.__AnonymousUIClickSound == false then return end
+      local now = os.clock()
+      if now - lastPlay < 0.025 then return end
+      lastPlay = now
+      pcall(function()
+        local s = getSound()
+        s.SoundId = id
+        s.Volume = vol or 0.4
+        s.PlaybackSpeed = speed or (0.96 + math.random() * 0.1)
+        s.TimePosition = 0
+        s:Play()
+      end)
+    end
+    -- Reliable free Roblox / classic UI sounds
+    local SFX = {
+      click = "rbxassetid://6895079853",
+      toggleOn = "rbxassetid://9118823101",
+      toggleOff = "rbxassetid://6895079853",
+      hover = "rbxassetid://10066921516",
+      open = "rbxassetid://12221967",
+      success = "rbxassetid://6026984224",
+    }
+    _G.__AnonymousPlayUiClick = function()
+      playUiSfx(SFX.click, 0.42)
+    end
+    _G.__AnonymousPlayUiToggle = function(on)
+      if on then
+        playUiSfx(SFX.toggleOn, 0.38, 1.05)
+      else
+        playUiSfx(SFX.toggleOff, 0.32, 0.92)
+      end
+    end
+    _G.__AnonymousPlayUiOpen = function()
+      playUiSfx(SFX.open, 0.3, 1.1)
+    end
+    _G.__AnonymousPlayUiSuccess = function()
+      playUiSfx(SFX.success, 0.35)
+    end
+    _G.__AnonymousUISfx = playUiSfx
+    _G.__AnonymousUISFX_IDS = SFX
+  end
+
   FeatureToggles = FeatureToggles or {}
   local y, H, a, h, f =
     {}, { Aimbot = true, ["Lagger Aimbot"] = true, Autoplay = true, Lagger = true }, {
@@ -718,6 +786,9 @@
             and math.abs(v.scroll.CanvasPosition.Y - v.scrollCanvasAtStart) > 5
           )
         then
+          pcall(function()
+            if _G.__AnonymousPlayUiClick then _G.__AnonymousPlayUiClick() end
+          end)
           v.callback()
         end
       end
@@ -1176,6 +1247,7 @@
       table.insert(_N, "M:animationPreset=" .. tostring(_G.__AnonymousAnimationPreset))
     end
     table.insert(_N, "M:guiTheme=" .. tostring(_G.__AnonymousGuiTheme or "GUI 1"))
+    table.insert(_N, "M:uiFont=" .. tostring(_G.__AnonymousUiFont or "Cartoon"))
     table.insert(_N, "M:themePrimary=" .. (_G.__AnonymousThemePrimary or "BLACK"))
     table.insert(_N, "M:themeSecondary=" .. (_G.__AnonymousThemeSecondary or "RED"))
     table.insert(_N, "M:selectedBGIndex=" .. tostring(_G.__AnonymousSelectedBGIndex or 1))
@@ -1472,6 +1544,10 @@
             _G.__AnonymousAnimationPreset = yN
           elseif UN == "guiTheme" then
             _G.__AnonymousGuiTheme = "GUI 1"
+          elseif UN == "uiFont" then
+            if yN and #yN > 0 then
+              _G.__AnonymousUiFont = yN
+            end
           end
         elseif pN == "A:" and O[UN] ~= nil then
           local H = tonumber(yN)
@@ -1606,27 +1682,23 @@
   K = y["Carry Speed"]
   y["TP Bat"] = false
   y.Korblox = false
+  -- Soft cleanup only (no forced character part mutations that can cause reset)
   pcall(function()
     local H = u.Character
     if not H then
       return
     end
-    for h, h in ipairs(H:GetChildren()) do
-      if h.Name:find("^SkinChanger_") or h.Name == "Korblox_RightLeg" then
-        h:Destroy()
-      end
-    end
-    local h = { "RightUpperLeg", "RightLowerLeg", "RightFoot" }
-    for f, Y in ipairs(h) do
-      f = H:FindFirstChild(Y)
-      if f and (f:IsA("BasePart")) then
-        f.Transparency = 0
-        f.CanCollide = true
+    for _, child in ipairs(H:GetChildren()) do
+      if type(child.Name) == "string" and (child.Name:find("^SkinChanger_") or child.Name == "Korblox_RightLeg") then
+        pcall(function() child:Destroy() end)
       end
     end
   end)
   y.Autoplay = false
   y.Lagger = false
+  y["Anti Die"] = false
+  y["Auto TP Down"] = false
+  y["Insta Reset"] = false
   g = _G._AnonymousHub_UI_MobileBtnPos or {}
   _G.__AnonymousModernGuiActive = true
   local H = game:GetService("CoreGui")
@@ -1636,7 +1708,7 @@
   end
   local h = Instance.new("ScreenGui")
   h.Name = "AnonymousHub"
-  h.Enabled = false
+  h.Enabled = true -- show immediately for intro
   h.ResetOnSpawn = false
   h.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
   h.DisplayOrder = 9999999
@@ -1647,18 +1719,164 @@
   if not h.Parent then
     h.Parent = u.PlayerGui
   end
+
+  -- ===== INSTANT BOOT INTRO (fires the moment the script runs) =====
+  task.spawn(function()
+    pcall(function()
+      local SoundService = game:GetService("SoundService")
+      local TweenService = game:GetService("TweenService")
+      local isMobile = p == true
+
+      -- instant click / open SFX
+      pcall(function()
+        if _G.__AnonymousPlayUiOpen then
+          _G.__AnonymousPlayUiOpen()
+        elseif _G.__AnonymousPlayUiClick then
+          _G.__AnonymousPlayUiClick()
+        else
+          local s = Instance.new("Sound")
+          s.Name = "AnonymousBootClick"
+          s.SoundId = "rbxassetid://6895079853"
+          s.Volume = 0.5
+          s.Parent = SoundService
+          s:Play()
+          task.delay(1.5, function() pcall(function() s:Destroy() end) end)
+        end
+      end)
+
+      -- intro music (Blue Bands - same track as 7UP list)
+      pcall(function()
+        local introUrl = "https://files.catbox.moe/mzvrir.mp3"
+        local introFile = "Anon7Up_Intro.mp3"
+        local sid = introUrl
+        if isfile and writefile and getcustomasset then
+          if not isfile(introFile) then
+            local ok, data = pcall(function()
+              if syn and syn.request then
+                return syn.request({ Url = introUrl, Method = "GET" }).Body
+              elseif request then
+                return request({ Url = introUrl, Method = "GET" }).Body
+              elseif http_request then
+                return http_request({ Url = introUrl, Method = "GET" }).Body
+              end
+              return nil
+            end)
+            if ok and type(data) == "string" and #data > 1000 then
+              pcall(writefile, introFile, data)
+            end
+          end
+          if isfile(introFile) then
+            local okA, asset = pcall(getcustomasset, introFile)
+            if okA and type(asset) == "string" and asset ~= "" then
+              sid = asset
+            end
+          end
+        end
+        local s = Instance.new("Sound")
+        s.Name = "AnonymousBootIntro"
+        s.SoundId = sid
+        s.Volume = 0.6
+        s.Parent = SoundService
+        s:Play()
+        task.delay(5, function()
+          pcall(function() s:Stop(); s:Destroy() end)
+        end)
+      end)
+
+      -- BIG cartoon splash (only one)
+      pcall(function()
+        local old = h:FindFirstChild("AnonymousBootSplash")
+        if old then old:Destroy() end
+        local old2 = h:FindFirstChild("AnonymousBootFlash")
+        if old2 then old2:Destroy() end
+      end)
+      local splash = Instance.new("Frame")
+      splash.Name = "AnonymousBootSplash"
+      splash.Size = UDim2.fromScale(1, 1)
+      splash.BackgroundColor3 = Color3.fromRGB(40, 0, 0) -- red tint overlay
+      splash.BackgroundTransparency = 0.2
+      splash.BorderSizePixel = 0
+      splash.ZIndex = 50000
+      splash.Parent = h
+
+      local card = Instance.new("Frame")
+      card.Name = "SplashCard"
+      card.AnchorPoint = Vector2.new(0.5, 0.5)
+      card.Position = UDim2.fromScale(0.5, 0.48)
+      card.Size = UDim2.new(0, isMobile and 320 or 520, 0, isMobile and 170 or 220)
+      card.BackgroundColor3 = Color3.fromRGB(28, 4, 8) -- dark red card
+      card.BackgroundTransparency = 0.05
+      card.BorderSizePixel = 0
+      card.ZIndex = 50001
+      card.Parent = splash
+      Instance.new("UICorner", card).CornerRadius = UDim.new(0, 26)
+      local stroke = Instance.new("UIStroke", card)
+      stroke.Color = Color3.fromRGB(255, 40, 55) -- bright red
+      stroke.Thickness = 3
+      stroke.Transparency = 0.1
+
+      local title = Instance.new("TextLabel")
+      title.Name = "Title"
+      title.Size = UDim2.new(1, -24, 0, isMobile and 72 or 100)
+      title.Position = UDim2.new(0, 12, 0, isMobile and 22 or 28)
+      title.BackgroundTransparency = 1
+      title.Text = "ANONYMOUS"
+      title.Font = Enum.Font.FredokaOne
+      title.TextScaled = true
+      title.TextColor3 = Color3.fromRGB(255, 50, 65) -- red title
+      title.TextStrokeTransparency = 0.1
+      title.TextStrokeColor3 = Color3.fromRGB(60, 0, 0)
+      title.ZIndex = 50002
+      title.Parent = card
+
+      local sub = Instance.new("TextLabel")
+      sub.Name = "Sub"
+      sub.Size = UDim2.new(1, -24, 0, isMobile and 44 or 60)
+      sub.Position = UDim2.new(0, 12, 0, isMobile and 100 or 130)
+      sub.BackgroundTransparency = 1
+      sub.Text = "ON TOP"
+      sub.Font = Enum.Font.FredokaOne
+      sub.TextScaled = true
+      sub.TextColor3 = Color3.fromRGB(255, 255, 255)
+      sub.TextStrokeTransparency = 0.15
+      sub.TextStrokeColor3 = Color3.fromRGB(80, 0, 0)
+      sub.ZIndex = 50002
+      sub.Parent = card
+
+      local scale = Instance.new("UIScale")
+      scale.Scale = 0.4
+      scale.Parent = card
+      -- simple spawn
+      TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+      TweenService:Create(splash, TweenInfo.new(0.15), { BackgroundTransparency = 0.3 }):Play()
+
+      task.wait(1.6)
+      -- simple despawn
+      pcall(function()
+        TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.9 }):Play()
+        TweenService:Create(splash, TweenInfo.new(0.25), { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(card, TweenInfo.new(0.25), { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(title, TweenInfo.new(0.25), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+        TweenService:Create(sub, TweenInfo.new(0.25), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+        TweenService:Create(stroke, TweenInfo.new(0.25), { Transparency = 1 }):Play()
+      end)
+      task.wait(0.3)
+      pcall(function() splash:Destroy() end)
+    end)
+  end)
+
   local H = workspace.CurrentCamera.ViewportSize
   GUI_METRICS = {
-    sectionPad = p and 4 or 6,
-    sectionGap = p and 4 or 6,
-    sectionHeaderH = p and 16 or 20,
-    toggleH = p and 44 or 62,
-    compactRowH = p and 30 or 36,
-    compactCardH = p and 28 or 32,
-    toggleTextSize = p and 9 or 10,
-    bindW = p and 34 or 40,
-    bindH = p and 16 or 20,
-    bindTextSize = p and 8 or 9,
+    sectionPad = p and 5 or 8,
+    sectionGap = p and 5 or 8,
+    sectionHeaderH = p and 18 or 22,
+    toggleH = p and 46 or 58,
+    compactRowH = p and 32 or 38,
+    compactCardH = p and 30 or 34,
+    toggleTextSize = p and 10 or 11,
+    bindW = p and 36 or 42,
+    bindH = p and 18 or 22,
+    bindTextSize = p and 8 or 10,
   }
   local f, Y, g =
     p and (math.clamp(math.floor(H.X * 0.42), 165, 205)) or (math.min(340, math.floor(H.X * 0.52))),
@@ -1697,7 +1915,7 @@
   QN.Visible = false
   QN.Parent = g
   local uN, pN =
-    { "rbxassetid://0", "rbxassetid://128441021511316", "rbxassetid://11723817205" }, tonumber(_G._AnonymousHub_UI_BgIndex) or 1
+    { "rbxassetid://114056083769059" }, tonumber(_G._AnonymousHub_UI_BgIndex) or 1
   local _N, UN = type(pN) ~= "number" or pN < 1
   if _N then
     UN = _N
@@ -1726,6 +1944,11 @@
         if _G.__AnonymousPreserveOptimizerUI(ON) then
           return
         end
+        -- NEVER touch local player character (was causing visual/character resets)
+        local locChar = u.Character
+        if locChar and (ON == locChar or ON:IsDescendantOf(locChar)) then
+          return
+        end
         local iN, SN = pcall(function()
           return ON:IsDescendantOf(game:GetService("Lighting"))
         end)
@@ -1747,6 +1970,20 @@
           local ZN = ON
           while ZN and ZN ~= workspace do
             if ZN.Name == "Headless_Headless" or (ZN.Name:find("^Korblox_")) then
+              return true
+            end
+            ZN = ZN.Parent
+          end
+          return false
+        end)
+        if iN and SN then
+          return
+        end
+        -- Also skip ANY player character (avoids outfit resets / anti-cheat flags)
+        iN, SN = pcall(function()
+          local ZN = ON
+          while ZN and ZN ~= workspace do
+            if ZN:IsA("Model") and z:GetPlayerFromCharacter(ZN) then
               return true
             end
             ZN = ZN.Parent
@@ -2226,7 +2463,7 @@
       GN.Position = UDim2.new(0, 8, 0, 4)
       GN.BackgroundTransparency = 1
       GN.Text = "RIVAL"
-      GN.Font = Enum.Font.GothamBold
+      GN.Font = Enum.Font.Cartoon
       GN.TextSize = 10
       GN.TextColor3 = Color3.fromRGB(180, 180, 180)
       GN.TextXAlignment = Enum.TextXAlignment.Left
@@ -2249,7 +2486,7 @@
       GN.Position = UDim2.new(0, 56, 0, 22)
       GN.BackgroundTransparency = 1
       GN.Text = "---"
-      GN.Font = Enum.Font.GothamBold
+      GN.Font = Enum.Font.Cartoon
       GN.TextSize = 13
       GN.TextColor3 = Color3.fromRGB(180, 180, 180)
       GN.TextXAlignment = Enum.TextXAlignment.Left
@@ -2260,7 +2497,7 @@
       IN.Position = UDim2.new(0, 56, 0, 44)
       IN.BackgroundTransparency = 1
       IN.Text = ""
-      IN.Font = Enum.Font.GothamBlack
+      IN.Font = Enum.Font.Cartoon
       IN.TextSize = 16
       IN.TextColor3 = Color3.fromRGB(255, 221, 0)
       IN.TextXAlignment = Enum.TextXAlignment.Left
@@ -3323,7 +3560,7 @@
       eN.LightInfluence = 0
       eN.MaxDistance = 0
       local function qN(KN, GN)
-        KN.Font = Enum.Font.GothamBlack
+        KN.Font = Enum.Font.Cartoon
         KN.TextStrokeTransparency = 0
         if GN then
           KN.TextColor3 = Color3.fromRGB(242, 242, 245)
@@ -3356,7 +3593,7 @@
       jN.TextScaled = false
       jN.TextSize = iN and 19 or 15
       qN(jN, iN)
-      jN.Font = Enum.Font.GothamBold
+      jN.Font = Enum.Font.Cartoon
       jN.TextColor3 = Color3.fromRGB(78, 78, 84)
       local KN = jN:FindFirstChild("SpeedTextGradient")
       if KN then
@@ -3965,7 +4202,7 @@
       _G.ExecuteTPDown = iN
       FeatureToggles["TP Down"] = iN
       do
-        _G.__loadInstaReset = true
+        _G.__loadInstaReset = false -- disabled: was causing unwanted resets
         local I, F, k = false
         local LN, ON = false, false
         local function SN()
@@ -5307,8 +5544,14 @@
         if _G.__AnonymousAutoGrabRagdollBlocked ~= true then
           LN()
         end
+        pcall(function()
+          if _G.__AnonymousPlayUiToggle then _G.__AnonymousPlayUiToggle(true) end
+        end)
       else
         k()
+        pcall(function()
+          if _G.__AnonymousPlayUiToggle then _G.__AnonymousPlayUiToggle(false) end
+        end)
       end
     end
     if y["auto steal"] then
@@ -5383,7 +5626,7 @@
         ON.Text = "3"
         ON.TextScaled = false
         ON.TextSize = 28
-        ON.Font = Enum.Font.GothamBlack
+        ON.Font = Enum.Font.Cartoon
         ON.TextColor3 = Color3.fromRGB(175, 180, 185)
         ON.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         ON.TextStrokeTransparency = 0
@@ -6531,7 +6774,7 @@
         GN.TextColor3 = _G.__AnonymousGuiTheme == "GUI 3" and (Color3.fromRGB(255, 45, 45))
           or (_G.__AnonymousGuiTheme == "GUI 2" and ON or (Color3.fromRGB(245, 245, 255)))
         GN.TextSize = 15
-        GN.Font = Enum.Font.GothamBold
+        GN.Font = Enum.Font.Cartoon
         GN.TextStrokeColor3 = _G.__AnonymousGuiTheme == "GUI 2" and iN or (Color3.fromRGB(0, 0, 0))
         GN.TextStrokeTransparency = 0
         GN.TextXAlignment = Enum.TextXAlignment.Center
@@ -6967,7 +7210,7 @@
       YN.Text = "x"
       YN.TextColor3 = Color3.fromRGB(180, 60, 60)
       YN.TextSize = 11
-      YN.Font = Enum.Font.GothamBold
+      YN.Font = Enum.Font.Cartoon
       YN.AutoButtonColor = false
       YN.TextXAlignment = Enum.TextXAlignment.Center
       YN.TextYAlignment = Enum.TextYAlignment.Center
@@ -7003,7 +7246,7 @@
       c.Text = "+ Add Custom Speed"
       c.TextColor3 = Color3.fromRGB(235, 70, 80)
       c.TextSize = 11
-      c.Font = Enum.Font.GothamBold
+      c.Font = Enum.Font.Cartoon
       c.AutoButtonColor = false
       Instance.new("UICorner", c).CornerRadius = UDim.new(0, 12)
       UN = Instance.new("UIStroke", c)
@@ -7034,7 +7277,7 @@
         UN.Text = "Name"
         UN.TextColor3 = Color3.fromRGB(168, 168, 176)
         UN.TextSize = 9
-        UN.Font = Enum.Font.GothamBold
+        UN.Font = Enum.Font.Cartoon
         UN.TextXAlignment = Enum.TextXAlignment.Left
         local LN = Instance.new("TextBox", QN)
         LN.Size = UDim2.new(0, 120, 0, 20)
@@ -7043,7 +7286,7 @@
         LN.BorderSizePixel = 0
         LN.Text = ""
         LN.PlaceholderText = "My Speed"
-        LN.Font = Enum.Font.GothamBold
+        LN.Font = Enum.Font.Cartoon
         LN.TextSize = 11
         LN.TextColor3 = Color3.fromRGB(205, 42, 54)
         LN.ClearTextOnFocus = false
@@ -7058,7 +7301,7 @@
         UN.Text = "Boost"
         UN.TextColor3 = Color3.fromRGB(168, 168, 176)
         UN.TextSize = 9
-        UN.Font = Enum.Font.GothamBold
+        UN.Font = Enum.Font.Cartoon
         UN.TextXAlignment = Enum.TextXAlignment.Left
         local iN = Instance.new("TextBox", QN)
         iN.Size = UDim2.new(0, 56, 0, 20)
@@ -7066,7 +7309,7 @@
         iN.BackgroundColor3 = Color3.fromRGB(34, 34, 39)
         iN.BorderSizePixel = 0
         iN.Text = "59"
-        iN.Font = Enum.Font.GothamBold
+        iN.Font = Enum.Font.Cartoon
         iN.TextSize = 12
         iN.TextColor3 = Color3.fromRGB(205, 42, 54)
         iN.TextXAlignment = Enum.TextXAlignment.Center
@@ -7082,7 +7325,7 @@
         UN.Text = "Steal"
         UN.TextColor3 = Color3.fromRGB(168, 168, 176)
         UN.TextSize = 9
-        UN.Font = Enum.Font.GothamBold
+        UN.Font = Enum.Font.Cartoon
         UN.TextXAlignment = Enum.TextXAlignment.Left
         local SN = Instance.new("TextBox", QN)
         SN.Size = UDim2.new(0, 56, 0, 20)
@@ -7090,7 +7333,7 @@
         SN.BackgroundColor3 = Color3.fromRGB(34, 34, 39)
         SN.BorderSizePixel = 0
         SN.Text = "29"
-        SN.Font = Enum.Font.GothamBold
+        SN.Font = Enum.Font.Cartoon
         SN.TextSize = 12
         SN.TextColor3 = Color3.fromRGB(205, 42, 54)
         SN.TextXAlignment = Enum.TextXAlignment.Center
@@ -7117,7 +7360,7 @@
         UN.Text = "Add Speed"
         UN.TextColor3 = Color3.fromRGB(255, 255, 255)
         UN.TextSize = 11
-        UN.Font = Enum.Font.GothamBold
+        UN.Font = Enum.Font.Cartoon
         UN.AutoButtonColor = false
         Instance.new("UICorner", UN).CornerRadius = UDim.new(0, 10)
         local ZN = Instance.new("TextLabel", QN)
@@ -7127,7 +7370,7 @@
         ZN.Text = ""
         ZN.TextColor3 = Color3.fromRGB(200, 60, 60)
         ZN.TextSize = 9
-        ZN.Font = Enum.Font.GothamBold
+        ZN.Font = Enum.Font.Cartoon
         ZN.TextXAlignment = Enum.TextXAlignment.Left
         v(UN, function()
           local UN, YN, jN = LN.Text:match("^%s*(.-)%s*$"), tonumber(iN.Text), tonumber(SN.Text)
@@ -7189,7 +7432,7 @@
       _N.Text = string.upper(_G.__autoplayMode or "Full")
       _N.TextColor3 = Color3.fromRGB(238, 238, 242)
       _N.TextSize = 10
-      _N.Font = Enum.Font.GothamBold
+      _N.Font = Enum.Font.Cartoon
       _N.AutoButtonColor = false
       _N.ZIndex = 10
       Instance.new("UICorner", _N).CornerRadius = UDim.new(0, 14)
@@ -7221,7 +7464,7 @@
         QN.Text = "V1"
         QN.TextColor3 = Color3.fromRGB(238, 238, 242)
         QN.TextSize = 10
-        QN.Font = Enum.Font.GothamBold
+        QN.Font = Enum.Font.Cartoon
         QN.AutoButtonColor = false
         QN.ZIndex = 10
         Instance.new("UICorner", QN).CornerRadius = UDim.new(0, 14)
@@ -7339,7 +7582,7 @@
       QN.BorderSizePixel = 0
       QN.Text = _G.__AnonymousInfJumpMode == "hold" and "HOLD" or "MANUAL"
       QN.TextColor3 = Color3.fromRGB(238, 238, 242)
-      QN.Font = Enum.Font.GothamBold
+      QN.Font = Enum.Font.Cartoon
       QN.TextSize = 10
       QN.AutoButtonColor = false
       QN.ZIndex = 30
@@ -7413,7 +7656,7 @@
         ON.BorderSizePixel = 0
         ON.Text = "V" .. tostring(_G.__batVersion or 1)
         ON.TextColor3 = Color3.fromRGB(238, 238, 242)
-        ON.Font = Enum.Font.GothamBold
+        ON.Font = Enum.Font.Cartoon
         ON.TextSize = 10
         ON.AutoButtonColor = false
         ON.Active = false
@@ -7445,7 +7688,7 @@
         LN.BackgroundTransparency = 1
         LN.Text = "GUI"
         LN.TextColor3 = Color3.fromRGB(235, 240, 250)
-        LN.Font = Enum.Font.GothamBold
+        LN.Font = Enum.Font.Cartoon
         LN.TextSize = 8
         LN.TextXAlignment = Enum.TextXAlignment.Left
         LN.ZIndex = 31
@@ -7482,7 +7725,7 @@
         eN.BackgroundTransparency = 1
         eN.Text = "DISTANCIA TP (STUDS)"
         eN.TextColor3 = Color3.fromRGB(198, 198, 205)
-        eN.Font = Enum.Font.GothamBold
+        eN.Font = Enum.Font.Cartoon
         eN.TextSize = 10
         eN.TextXAlignment = Enum.TextXAlignment.Left
         eN.ZIndex = 23
@@ -7496,7 +7739,7 @@
         qN.ClearTextOnFocus = false
         qN.Text = tostring(_G.__tpBatV2Distance or 8)
         qN.TextColor3 = Color3.fromRGB(245, 248, 255)
-        qN.Font = Enum.Font.GothamBold
+        qN.Font = Enum.Font.Cartoon
         qN.TextSize = 11
         qN.TextXAlignment = Enum.TextXAlignment.Center
         qN.ZIndex = 24
@@ -7512,7 +7755,7 @@
         eN.BackgroundTransparency = 1
         eN.Text = "VERSION TP BAT"
         eN.TextColor3 = Color3.fromRGB(198, 198, 205)
-        eN.Font = Enum.Font.GothamBold
+        eN.Font = Enum.Font.Cartoon
         eN.TextSize = 10
         eN.TextXAlignment = Enum.TextXAlignment.Left
         eN.ZIndex = 23
@@ -7525,7 +7768,7 @@
         eN.BorderSizePixel = 0
         eN.Text = "V" .. tostring(_G.__batVersion or 1)
         eN.TextColor3 = Color3.fromRGB(245, 248, 255)
-        eN.Font = Enum.Font.GothamBold
+        eN.Font = Enum.Font.Cartoon
         eN.TextSize = 11
         eN.AutoButtonColor = false
         eN.Active = true
@@ -7777,7 +8020,7 @@
           eN.TextStrokeColor3 = Color3.fromRGB(62, 8, 14)
           eN.TextStrokeTransparency = 0.25
           eN.TextSize = 11
-          eN.Font = Enum.Font.GothamMedium
+          eN.Font = Enum.Font.Cartoon
           eN.Parent = YN
           U.lastTargetMarker = KN
         end
@@ -8501,7 +8744,8 @@
       local U = Instance.new("Frame", h)
       U.Name = "AnonymousAutoGrabBar"
       U.AnchorPoint = Vector2.new(0, 0)
-      local t, nN = p and 230 or 310, p and 205 or 280
+      -- enlarged square card sizes (expanded / compact)
+      local t, nN = p and 260 or 340, p and 220 or 280
       local QN, UN, hN =
         math.floor((t + nN) / 2),
         _G._AnonymousHub_UI_AutoGrabBarSize,
@@ -8514,31 +8758,32 @@
         hN = false
       end
       _G._AnonymousHub_UI_AutoGrabExpanded = hN
-      U.Size = UDim2.new(0, LN, 0, p and 56 or 64)
+      -- taller square card
+      U.Size = UDim2.new(0, LN, 0, p and 92 or 108)
       UN = _G._AnonymousHub_UI_AutoGrabBarPos
       if UN and UN.x and UN.y then
         U.Position = UDim2.fromOffset(UN.x, UN.y)
       else
-        U.Position = UDim2.new(0.5, -LN / 2, 0.8, 0)
+        U.Position = UDim2.new(0.5, -LN / 2, 0.78, 0)
       end
       U.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
-      U.BackgroundTransparency = 0.05
+      U.BackgroundTransparency = 0.06
       U.BorderSizePixel = 0
       U.ZIndex = 500
       U.Active = true
       U.Draggable = false
       U.Visible = false
       U.ClipsDescendants = true
-      Instance.new("UICorner", U).CornerRadius = UDim.new(0, 6) -- fully rounded pill
+      Instance.new("UICorner", U).CornerRadius = UDim.new(0, 12) -- square card
       local ON = Instance.new("UIStroke", U)
-      ON.Color = Color3.fromRGB(220, 32, 46)
-      ON.Thickness = 2
+      ON.Color = Color3.fromRGB(242, 48, 68)
+      ON.Thickness = 1.5
       ON.Transparency = 0.3
       ON.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
       _N = Instance.new("UIGradient", U)
       _N.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(32, 18, 24)),
-        ColorSequenceKeypoint.new(0.45, Color3.fromRGB(16, 14, 20)),
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(26, 14, 18)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 10, 14)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 14)),
       })
       _N.Rotation = 90
@@ -8546,76 +8791,72 @@
       local glow = Instance.new("Frame", U)
       glow.Name = "OuterGlow"
       glow.BackgroundTransparency = 1
-      glow.Size = UDim2.new(1, 10, 1, 10)
-      glow.Position = UDim2.new(0, -5, 0, -5)
+      glow.Size = UDim2.new(1, 12, 1, 12)
+      glow.Position = UDim2.new(0, -6, 0, -6)
       glow.ZIndex = 499
       glow.Active = false
       local glowStroke = Instance.new("UIStroke", glow)
-      glowStroke.Color = Color3.fromRGB(220, 32, 46)
+      glowStroke.Color = Color3.fromRGB(242, 48, 68)
       glowStroke.Thickness = 4
-      glowStroke.Transparency = 0.85
-      Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 6)
-      -- Circular player head/skin thumbnail for the Auto Steal bar.
-      local playerHead = Instance.new("ImageLabel", U)
-      playerHead.Name = "PlayerHead"
-      playerHead.Size = UDim2.fromOffset(p and 34 or 42, p and 34 or 42)
-      playerHead.Position = UDim2.new(0, p and 8 or 10, 0.5, p and -17 or -21)
-      playerHead.BackgroundColor3 = Color3.fromRGB(34, 20, 24)
-      playerHead.BackgroundTransparency = 0.05
-      playerHead.BorderSizePixel = 0
-      playerHead.ScaleType = Enum.ScaleType.Crop
-      playerHead.ZIndex = 506
-      playerHead.Parent = U
-      Instance.new("UICorner", playerHead).CornerRadius = UDim.new(1, 0)
-      local playerHeadStroke = Instance.new("UIStroke", playerHead)
-      playerHeadStroke.Color = Color3.fromRGB(220, 32, 46)
-      playerHeadStroke.Thickness = 1.5
-      playerHeadStroke.Transparency = 0.15
-      pcall(function()
-        local image = z:GetUserThumbnailAsync(
-          u.UserId,
-          Enum.ThumbnailType.HeadShot,
-          Enum.ThumbnailSize.Size100x100
-        )
-        playerHead.Image = image
-      end)
+      glowStroke.Transparency = 0.88
+      Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 14)
+      -- Background 4 on Auto Steal bar (no avatar)
+      local barBg = Instance.new("ImageLabel", U)
+      barBg.Name = "AutoStealBG4"
+      barBg.Size = UDim2.fromScale(1, 1)
+      barBg.Position = UDim2.fromScale(0, 0)
+      barBg.BackgroundTransparency = 1
+      barBg.BorderSizePixel = 0
+      barBg.Image = "rbxassetid://77785523954153" -- bg04
+      barBg.ScaleType = Enum.ScaleType.Crop
+      barBg.ImageTransparency = 0.25
+      barBg.ZIndex = 500
+      barBg.Parent = U
+      Instance.new("UICorner", barBg).CornerRadius = UDim.new(0, 12)
+      -- dark overlay so text stays readable
+      local barDim = Instance.new("Frame", U)
+      barDim.Name = "AutoStealDim"
+      barDim.Size = UDim2.fromScale(1, 1)
+      barDim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+      barDim.BackgroundTransparency = 0.45
+      barDim.BorderSizePixel = 0
+      barDim.ZIndex = 501
+      barDim.Parent = U
+      Instance.new("UICorner", barDim).CornerRadius = UDim.new(0, 12)
 
+      -- Simple FPS / Ping box (top-right)
       nN = Instance.new("Frame", U)
-      nN.Size = UDim2.new(0, p and 92 or 112, 1, -4)
-      nN.Position = UDim2.new(1, p and -94 or -114, 0, 2)
-      nN.BackgroundTransparency = 1
+      nN.Name = "StatsBox"
+      nN.Size = UDim2.new(0, p and 72 or 84, 0, p and 40 or 46)
+      nN.Position = UDim2.new(1, p and -80 or -92, 0, 6)
+      nN.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
+      nN.BackgroundTransparency = 0.2
+      nN.BorderSizePixel = 0
       nN.Visible = true
-      nN.ZIndex = 504
-      UN = Instance.new("Frame", nN)
-      UN.Name = "Divider"
-      UN.Size = UDim2.new(0, 1, 1, -10)
-      UN.Position = UDim2.new(0, 0, 0, 5)
-      UN.BorderSizePixel = 0
-      UN.BackgroundColor3 = Color3.fromRGB(220, 32, 46)
-      UN.BackgroundTransparency = 0.55
-      UN.ZIndex = 505
+      nN.ZIndex = 510
+      Instance.new("UICorner", nN).CornerRadius = UDim.new(0, 8)
       local fpsLabel = Instance.new("TextLabel", nN)
       fpsLabel.Name = "FpsLabel"
-      fpsLabel.Size = UDim2.new(0, p and 40 or 50, 0, 14)
-      fpsLabel.Position = UDim2.new(0, p and 5 or 7, 0, p and 6 or 8)
+      fpsLabel.Size = UDim2.new(1, -8, 0, p and 16 or 18)
+      fpsLabel.Position = UDim2.new(0, 4, 0, 3)
       fpsLabel.BackgroundTransparency = 1
-      fpsLabel.Text = "0 FPS"
-      fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-      fpsLabel.Font = Enum.Font.GothamBold
-      fpsLabel.TextSize = p and 9 or 10
-      fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+      fpsLabel.Text = "60 FPS"
+      fpsLabel.TextColor3 = Color3.fromRGB(180, 255, 200)
+      fpsLabel.Font = Enum.Font.Cartoon
+      fpsLabel.TextSize = p and 11 or 12
+      fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
       fpsLabel.ZIndex = 506
       fpsLabel.Visible = true
       local pingLabel = Instance.new("TextLabel", nN)
       pingLabel.Name = "PingLabel"
-      pingLabel.Size = UDim2.new(0, p and 42 or 52, 0, 14)
-      pingLabel.Position = UDim2.new(0, p and 48 or 60, 0, p and 6 or 8)
+      pingLabel.Size = UDim2.new(1, -8, 0, p and 16 or 18)
+      pingLabel.Position = UDim2.new(0, 4, 0, p and 20 or 24)
       pingLabel.BackgroundTransparency = 1
-      pingLabel.Text = "0 ms"
-      pingLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-      pingLabel.Font = Enum.Font.GothamBold
-      pingLabel.TextSize = p and 9 or 10
-      pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+      pingLabel.Text = "30 ms"
+      pingLabel.TextColor3 = Color3.fromRGB(180, 210, 255)
+      pingLabel.Font = Enum.Font.Cartoon
+      pingLabel.TextSize = p and 11 or 12
+      pingLabel.TextXAlignment = Enum.TextXAlignment.Right
       pingLabel.ZIndex = 506
       pingLabel.Visible = true
       local r = Instance.new("TextLabel", nN)
@@ -8623,7 +8864,7 @@
       r.Position = UDim2.new(1, -84, 0, 0)
       r.BackgroundTransparency = 1
       r.TextColor3 = Color3.fromRGB(235, 235, 240)
-      r.Font = Enum.Font.GothamBold
+      r.Font = Enum.Font.Cartoon
       r.TextSize = 11
       r.TextXAlignment = Enum.TextXAlignment.Right
       r.ZIndex = 502
@@ -8635,7 +8876,7 @@
       x.BackgroundTransparency = 0.2
       x.BackgroundColor3 = Color3.fromRGB(110, 110, 110)
       x.TextColor3 = Color3.fromRGB(235, 240, 245)
-      x.Font = Enum.Font.GothamBold
+      x.Font = Enum.Font.Cartoon
       x.TextSize = 10
       x.Text = hN and "-" or "+"
       x.Visible = false
@@ -8675,36 +8916,36 @@
           x.Text = "+"
         end
       end)
-      -- Progress track (rounded)
+      -- Progress track (crystal pill)
       UN = Instance.new("Frame", U)
       UN.Name = "ProgressTrack"
-      UN.Visible = true -- progress line restored; percentage remains hidden
-      UN.Size = UDim2.new(1, p and -170 or -196, 0, p and 10 or 12)
-      UN.Position = UDim2.new(0, p and 52 or 62, 0, p and 34 or 40)
-      UN.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+      UN.Visible = true
+      UN.Size = UDim2.new(1, p and -24 or -28, 0, p and 12 or 14)
+      UN.Position = UDim2.new(0, p and 12 or 14, 1, p and -22 or -26)
+      UN.BackgroundColor3 = Color3.fromRGB(18, 16, 22)
       UN.BorderSizePixel = 0
-      UN.ZIndex = 500
-      Instance.new("UICorner", UN).CornerRadius = UDim.new(0, 6)
+      UN.ZIndex = 505
+      Instance.new("UICorner", UN).CornerRadius = UDim.new(1, 0)
       local trackStroke = Instance.new("UIStroke", UN)
-      trackStroke.Color = Color3.fromRGB(60, 30, 36)
+      trackStroke.Color = Color3.fromRGB(70, 32, 40)
       trackStroke.Thickness = 1
-      trackStroke.Transparency = 0.4
+      trackStroke.Transparency = 0.35
       -- Progress fill (colored trail)
       local x = Instance.new("Frame", UN)
       x.Name = "ProgressFill"
       x.Size = UDim2.new(0, 0, 1, 0)
       x.Position = UDim2.new(0, 0, 0, 0)
       x.BorderSizePixel = 0
-      x.BackgroundColor3 = Color3.fromRGB(220, 32, 46)
+      x.BackgroundColor3 = Color3.fromRGB(242, 48, 68)
       x.ClipsDescendants = true
       x.ZIndex = 502
-      Instance.new("UICorner", x).CornerRadius = UDim.new(0, 6)
+      Instance.new("UICorner", x).CornerRadius = UDim.new(1, 0)
       local t = Instance.new("UIGradient", x)
-      local QN = Color3.fromRGB(220, 32, 46)
+      local QN = Color3.fromRGB(242, 48, 68)
       t.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 140, 150)),
-        ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 32, 46)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(132, 12, 28)),
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 160, 170)),
+        ColorSequenceKeypoint.new(0.45, Color3.fromRGB(242, 48, 68)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 20, 40)),
       })
       t.Rotation = 0
       -- Shimmer overlay on fill
@@ -8724,11 +8965,15 @@
         NumberSequenceKeypoint.new(1, 1),
       })
       local function hN(iN)
-        QN = Color3.fromRGB(220, 32, 46)
+        local acc = (_G.__AnonymousThemePalette and _G.__AnonymousThemePalette.accent)
+          or Color3.fromRGB(242, 48, 68)
+        local dim = (_G.__AnonymousThemePalette and _G.__AnonymousThemePalette.accentDim)
+          or Color3.fromRGB(120, 16, 28)
+        QN = acc
         t.Color = ColorSequence.new({
-          ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 140, 150)),
-          ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 32, 46)),
-          ColorSequenceKeypoint.new(1, Color3.fromRGB(132, 12, 28)),
+          ColorSequenceKeypoint.new(0, acc:Lerp(Color3.new(1, 1, 1), 0.35)),
+          ColorSequenceKeypoint.new(0.45, acc),
+          ColorSequenceKeypoint.new(1, dim),
         })
         x.BackgroundColor3 = QN
       end
@@ -8742,7 +8987,7 @@
       t.TextColor3 = Color3.fromRGB(248, 248, 250)
       t.TextStrokeTransparency = 1
       t.TextSize = p and 10 or 12
-      t.Font = Enum.Font.GothamBold
+      t.Font = Enum.Font.Cartoon
       t.TextXAlignment = Enum.TextXAlignment.Center
       t.ZIndex = 503
       t.Visible = false
@@ -8753,46 +8998,62 @@
       nN.Text = ""
       nN.TextColor3 = Color3.fromRGB(220, 220, 225)
       nN.TextSize = 9
-      nN.Font = Enum.Font.GothamBold
+      nN.Font = Enum.Font.Cartoon
       nN.TextXAlignment = Enum.TextXAlignment.Left
       nN.ZIndex = 503
       nN.Visible = false
       local nN = Instance.new("TextLabel", U)
-      nN.Size = UDim2.new(0, 56, 0, 22)
-      nN.Position = UDim2.new(1, p and -124 or -140, 0, 5)
+      nN.Name = "PercentLabel"
+      nN.Size = UDim2.new(0, 58, 0, 26)
+      nN.Position = UDim2.new(1, p and -150 or -170, 0, p and 50 or 58)
       nN.BackgroundTransparency = 1
       nN.Text = "0%"
-      nN.TextColor3 = Color3.fromRGB(255, 140, 150)
-      nN.TextStrokeTransparency = 0.3
+      nN.TextColor3 = Color3.fromRGB(255, 150, 160)
+      nN.TextStrokeTransparency = 0.4
       nN.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-      nN.TextSize = p and 14 or 16
+      nN.TextSize = p and 16 or 18
       nN.Font = Enum.Font.FredokaOne
       nN.TextXAlignment = Enum.TextXAlignment.Right
       nN.ZIndex = 504
-      nN.Visible = false -- percentage removed from the Auto Steal interface
+      nN.Visible = true -- % visible again
       local hN = Instance.new("TextLabel", U)
-      hN.Size = UDim2.new(1, p and -170 or -196, 0, p and 22 or 24)
-      hN.Position = UDim2.new(0, p and 52 or 62, 0, 4)
+      hN.Name = "StealTitle"
+      hN.Size = UDim2.new(1, p and -100 or -120, 0, p and 22 or 24)
+      hN.Position = UDim2.new(0, p and 12 or 14, 0, 8)
       hN.BackgroundTransparency = 1
       hN.Text = "AUTO STEAL"
       hN.TextColor3 = Color3.fromRGB(255, 255, 255)
-      hN.TextStrokeTransparency = 0
+      hN.TextStrokeTransparency = 0.2
       hN.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
       hN.Font = Enum.Font.FredokaOne
-      hN.TextSize = p and 14 or 16
+      hN.TextSize = p and 13 or 15
       hN.TextXAlignment = Enum.TextXAlignment.Left
       hN.ZIndex = 504
       hN.Visible = true
+      -- Mode badge (V1 / V2)
+      local modeBadge = Instance.new("TextLabel", U)
+      modeBadge.Name = "StealModeBadge"
+      modeBadge.Size = UDim2.new(0, p and 28 or 32, 0, p and 16 or 18)
+      modeBadge.Position = UDim2.new(0, p and 118 or 138, 0, 10)
+      modeBadge.BackgroundColor3 = Color3.fromRGB(242, 48, 68)
+      modeBadge.BackgroundTransparency = 0.15
+      modeBadge.BorderSizePixel = 0
+      modeBadge.Text = string.upper(tostring(i or "v1"))
+      modeBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+      modeBadge.Font = Enum.Font.Cartoon
+      modeBadge.TextSize = p and 9 or 10
+      modeBadge.ZIndex = 505
+      Instance.new("UICorner", modeBadge).CornerRadius = UDim.new(1, 0)
       -- status chip under title
       local statusChip = Instance.new("TextLabel", U)
       statusChip.Name = "StealStatus"
-      statusChip.Size = UDim2.new(0, 90, 0, 12)
-      statusChip.Position = UDim2.new(0, p and 52 or 62, 0, p and 22 or 24)
+      statusChip.Size = UDim2.new(0, 160, 0, 16)
+      statusChip.Position = UDim2.new(0, p and 12 or 14, 0, p and 32 or 36)
       statusChip.BackgroundTransparency = 1
-      statusChip.Text = "READY"
-      statusChip.TextColor3 = Color3.fromRGB(160, 160, 175)
-      statusChip.Font = Enum.Font.GothamBold
-      statusChip.TextSize = 9
+      statusChip.Text = "● READY"
+      statusChip.TextColor3 = Color3.fromRGB(170, 170, 185)
+      statusChip.Font = Enum.Font.Cartoon
+      statusChip.TextSize = p and 10 or 11
       statusChip.TextXAlignment = Enum.TextXAlignment.Left
       statusChip.ZIndex = 504
       -- animation state for progress bar effects
@@ -8933,44 +9194,69 @@
         lastFps = nil,
         lastPing = nil,
       }
-      _G.__AnonymousTrackConn(D.Heartbeat:Connect(function(iN)
-        LN.uiElapsed = LN.uiElapsed + (iN or 0)
-        LN.statsElapsed = (LN.statsElapsed or 0) + (iN or 0)
-        -- FPS / Ping refresh (~4x/sec) even when bar is idle-looking
-        if LN.statsElapsed >= 0.25 then
-          LN.statsElapsed = 0
-          local fps = math.floor((1 / math.max(iN or 0.016, 0.001)) + 0.5)
-          if typeof(stats) == "table" and stats.fps then
-            fps = math.floor(tonumber(stats.fps) or fps)
+      -- Real client FPS via RenderStepped (not physics FPS)
+      do
+        local frameAcc, frameCount, statsT = 0, 0, 0
+        _G.__AnonymousTrackConn(D.RenderStepped:Connect(function(dt)
+          dt = tonumber(dt) or 0.016
+          if dt < 0.00005 then dt = 0.00005 end
+          frameAcc = frameAcc + dt
+          frameCount = frameCount + 1
+          statsT = statsT + dt
+          if statsT < 0.2 then return end
+          statsT = 0
+          local fps = 60
+          if frameCount > 0 and frameAcc > 0 then
+            fps = math.floor(frameCount / frameAcc + 0.5)
           end
-          pcall(function()
-            local ok, v = pcall(function()
-              return workspace:GetRealPhysicsFPS()
-            end)
-            if ok and typeof(v) == "number" then
-              fps = math.floor(v + 0.5)
-            end
-          end)
+          frameAcc, frameCount = 0, 0
+          fps = math.clamp(fps, 1, 1000)
           local pingMs = 0
           pcall(function()
-            pingMs = math.floor((u:GetNetworkPing() or 0) * 1000 + 0.5)
+            local ping = u:GetNetworkPing()
+            if typeof(ping) == "number" then
+              pingMs = math.floor(ping * 1000 + 0.5)
+            end
           end)
           if pingMs <= 0 then
             pcall(function()
-              pingMs = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() or 0)
+              local st = game:GetService("Stats")
+              local net = st and st:FindFirstChild("Network")
+              local item = net and net:FindFirstChild("ServerStatsItem") and net.ServerStatsItem:FindFirstChild("Data Ping")
+              if item and item.GetValue then
+                pingMs = math.floor(tonumber(item:GetValue()) or 0)
+              end
             end)
           end
-          if fps ~= LN.lastFps and fpsLabel then
+          if pingMs < 0 then pingMs = 0 end
+          if fpsLabel and fpsLabel.Parent then
             fpsLabel.Text = tostring(fps) .. " FPS"
-            fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            if fps >= 50 then
+              fpsLabel.TextColor3 = Color3.fromRGB(120, 255, 160)
+            elseif fps >= 30 then
+              fpsLabel.TextColor3 = Color3.fromRGB(255, 220, 120)
+            else
+              fpsLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+            end
             LN.lastFps = fps
           end
-          if pingMs ~= LN.lastPing and pingLabel then
+          if pingLabel and pingLabel.Parent then
             pingLabel.Text = tostring(pingMs) .. " ms"
-            pingLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            if pingMs <= 80 then
+              pingLabel.TextColor3 = Color3.fromRGB(140, 210, 255)
+            elseif pingMs <= 150 then
+              pingLabel.TextColor3 = Color3.fromRGB(255, 210, 120)
+            else
+              pingLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+            end
             LN.lastPing = pingMs
           end
-        end
+        end))
+      end
+      _G.__AnonymousTrackConn(D.Heartbeat:Connect(function(iN)
+        local dt = tonumber(iN) or 0.016
+        if dt < 0.0001 then dt = 0.016 end
+        LN.uiElapsed = LN.uiElapsed + dt
         local idleUi = y["auto steal"] ~= true and (I or 0) <= 0 and LN.displayProgress <= 0.001
         local uiInterval = idleUi and 0.12 or (1 / 60)
         if LN.uiElapsed < uiInterval then
@@ -9060,10 +9346,10 @@
             gStroke.Thickness = 3 + 2 * (0.5 + 0.5 * math.sin(animT * 3))
           end
         else
-          ON.Color = Color3.fromRGB(220, 32, 46)
-          ON.Transparency = 0.35
-          ON.Thickness = 2
-          if gStroke then gStroke.Transparency = 0.88; gStroke.Thickness = 4 end
+          ON.Color = Color3.fromRGB(242, 48, 68)
+          ON.Transparency = 0.4
+          ON.Thickness = 1.6
+          if gStroke then gStroke.Transparency = 0.9; gStroke.Thickness = 5 end
         end
         -- Status text + distance
         local st = U:FindFirstChild("StealStatus")
@@ -9071,23 +9357,39 @@
           local dist = tonumber(_G.__AnonymousAutoStealDist)
           local hasT = _G.__AnonymousAutoStealHasTarget == true or LN.targetInRadius
           if I >= 0.95 then
-            st.Text = "STEALING ✓"
-            st.TextColor3 = Color3.fromRGB(255, 140, 150)
+            st.Text = "★ STEALING"
+            st.TextColor3 = Color3.fromRGB(255, 150, 165)
+            if not LN._stealSfx then
+              LN._stealSfx = true
+              pcall(function()
+                if _G.__AnonymousPlayUiSuccess then _G.__AnonymousPlayUiSuccess() end
+              end)
+            end
+          elseif I < 0.5 then
+            LN._stealSfx = false
           elseif I > 0.35 then
-            st.Text = dist and string.format("LOCKING  %.0fm", dist) or "LOCKING…"
-            st.TextColor3 = Color3.fromRGB(255, 170, 90)
+            st.Text = dist and string.format("▲ LOCKING  %.0fm", dist) or "▲ LOCKING"
+            st.TextColor3 = Color3.fromRGB(255, 175, 95)
           elseif I > 0.05 then
-            st.Text = dist and string.format("IN RANGE  %.0fm", dist) or "IN RANGE"
-            st.TextColor3 = Color3.fromRGB(255, 210, 120)
+            st.Text = dist and string.format("◇ IN RANGE  %.0fm", dist) or "◇ IN RANGE"
+            st.TextColor3 = Color3.fromRGB(255, 215, 130)
           elseif hasT and y["auto steal"] then
-            st.Text = dist and string.format("TARGET  %.0fm", dist) or "TARGET FOUND"
-            st.TextColor3 = Color3.fromRGB(120, 220, 160)
+            st.Text = dist and string.format("◆ TARGET  %.0fm", dist) or "◆ TARGET FOUND"
+            st.TextColor3 = Color3.fromRGB(110, 230, 165)
           elseif y["auto steal"] then
-            st.Text = "SCANNING…"
-            st.TextColor3 = Color3.fromRGB(160, 200, 255)
+            st.Text = "◎ SCANNING"
+            st.TextColor3 = Color3.fromRGB(150, 200, 255)
           else
-            st.Text = "READY"
-            st.TextColor3 = Color3.fromRGB(150, 150, 165)
+            st.Text = "● READY"
+            st.TextColor3 = Color3.fromRGB(160, 160, 175)
+          end
+        end
+        -- keep mode badge in sync
+        local badge = U:FindFirstChild("StealModeBadge")
+        if badge then
+          local modeTxt = string.upper(tostring(i or "v1"))
+          if badge.Text ~= modeTxt then
+            badge.Text = modeTxt
           end
         end
         -- particles
@@ -9154,7 +9456,7 @@
       x.BorderSizePixel = 0
       x.TextColor3 = Color3.fromRGB(238, 238, 242)
       x.TextSize = 10
-      x.Font = Enum.Font.GothamBold
+      x.Font = Enum.Font.Cartoon
       x.AutoButtonColor = false
       x.ZIndex = 30
       Instance.new("UICorner", x).CornerRadius = UDim.new(0, 14)
@@ -10502,7 +10804,7 @@
         n.BorderSizePixel = 0
         n.Text = "BLUE"
         n.TextColor3 = Color3.fromRGB(238, 238, 242)
-        n.Font = Enum.Font.GothamBold
+        n.Font = Enum.Font.Cartoon
         n.TextSize = 10
         n.AutoButtonColor = false
         n.ZIndex = 30
@@ -10554,7 +10856,7 @@
       R.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
       R.BackgroundTransparency = 0.12
       R.AutoButtonColor = false
-      R.Font = Enum.Font.GothamBold
+      R.Font = Enum.Font.Cartoon
       R.Text = "Themes"
       R.TextColor3 = Color3.fromRGB(235, 240, 245)
       R.TextSize = 11
@@ -10691,7 +10993,7 @@
         LN.Text = "GUI " .. tostring(hN)
         LN.TextColor3 = Color3.fromRGB(235, 240, 245)
         LN.TextSize = 8
-        LN.Font = Enum.Font.GothamBold
+        LN.Font = Enum.Font.Cartoon
         LN.ZIndex = 23
         LN.TextStrokeColor3 = Color3.fromRGB(6, 6, 9)
         LN.TextStrokeTransparency = 0.25
@@ -10723,7 +11025,7 @@
       F.Text = "Save Theme"
       F.TextColor3 = Color3.fromRGB(235, 240, 245)
       F.TextSize = 11
-      F.Font = Enum.Font.GothamBold
+      F.Font = Enum.Font.Cartoon
       F.ZIndex = 21
       Instance.new("UICorner", F).CornerRadius = UDim.new(0, 12)
       F.Activated:Connect(function()
@@ -10796,7 +11098,7 @@
         nN.AutoButtonColor = false
         nN.Active = true
         nN.Draggable = false
-        nN.Font = Enum.Font.GothamBold
+        nN.Font = Enum.Font.Cartoon
         nN.Text = x
         nN.TextScaled = true
         nN.TextWrapped = true
@@ -11151,7 +11453,7 @@
       n.Text = "BYPASS"
       n.TextColor3 = Color3.fromRGB(205, 205, 212)
       n.TextSize = 11
-      n.Font = Enum.Font.GothamBold
+      n.Font = Enum.Font.Cartoon
       n.AutoButtonColor = false
       Instance.new("UICorner", n).CornerRadius = UDim.new(0, 12)
       local F = Instance.new("UIStroke", n)
@@ -11167,7 +11469,7 @@
       d.Text = "LAGGER"
       d.TextColor3 = Color3.fromRGB(205, 205, 212)
       d.TextSize = 11
-      d.Font = Enum.Font.GothamBold
+      d.Font = Enum.Font.Cartoon
       d.AutoButtonColor = false
       Instance.new("UICorner", d).CornerRadius = UDim.new(0, 12)
       local c = Instance.new("UIStroke", d)
@@ -11567,7 +11869,7 @@
         iN.Text = "OFF"
         iN.TextColor3 = Color3.fromRGB(38, 38, 43)
         iN.TextSize = 10
-        iN.Font = Enum.Font.GothamBold
+        iN.Font = Enum.Font.Cartoon
         iN.AutoButtonColor = false
         iN.TextWrapped = false
         iN.ZIndex = 6
@@ -11582,7 +11884,7 @@
           iN.Text = LN and "ON" or "OFF"
           iN.BackgroundColor3 = LN and (Color3.fromRGB(190, 45, 55)) or (Color3.fromRGB(54, 54, 60))
           iN.TextColor3 = Color3.fromRGB(255, 255, 255)
-          iN.Font = Enum.Font.GothamBold
+          iN.Font = Enum.Font.Cartoon
         end
         iN.Activated:Connect(function()
           LN = not LN
@@ -11603,7 +11905,7 @@
         iN.Text = "<"
         iN.TextColor3 = Color3.fromRGB(240, 245, 255)
         iN.TextSize = 20
-        iN.Font = Enum.Font.GothamBold
+        iN.Font = Enum.Font.Cartoon
         iN.AutoButtonColor = false
         iN.ZIndex = 5
         iN.Parent = ZN
@@ -11626,7 +11928,7 @@
         ZN.Text = tostring(QN or "")
         ZN.TextColor3 = Color3.fromRGB(240, 245, 255)
         ZN.TextSize = 12
-        ZN.Font = Enum.Font.GothamBold
+        ZN.Font = Enum.Font.Cartoon
         ZN.TextXAlignment = Enum.TextXAlignment.Center
         ZN.TextYAlignment = Enum.TextYAlignment.Center
         ZN.ZIndex = 5
@@ -11649,7 +11951,7 @@
         jN.Text = ">"
         jN.TextColor3 = Color3.fromRGB(240, 245, 255)
         jN.TextSize = 20
-        jN.Font = Enum.Font.GothamBold
+        jN.Font = Enum.Font.Cartoon
         jN.AutoButtonColor = false
         jN.ZIndex = 5
         jN.Parent = SN
@@ -12129,7 +12431,7 @@
             kN.Size = UDim2.fromOffset(140, 16)
             kN.Position = UDim2.fromOffset(42, 6)
             kN.BackgroundTransparency = 1
-            kN.Font = Enum.Font.GothamBold
+            kN.Font = Enum.Font.Cartoon
             kN.TextSize = 13
             kN.TextColor3 = DN.text
             kN.TextXAlignment = Enum.TextXAlignment.Left
@@ -12140,7 +12442,7 @@
             EN.Size = UDim2.fromOffset(140, 12)
             EN.Position = UDim2.fromOffset(42, 22)
             EN.BackgroundTransparency = 1
-            EN.Font = Enum.Font.Gotham
+            EN.Font = Enum.Font.Cartoon
             EN.TextSize = 10
             EN.TextColor3 = DN.textMuted
             EN.TextXAlignment = Enum.TextXAlignment.Left
@@ -12152,7 +12454,7 @@
             lN.Position = UDim2.new(1, -56, 0.5, -12)
             lN.BackgroundColor3 = DN.bgCard
             lN.BorderSizePixel = 0
-            lN.Font = Enum.Font.GothamBold
+            lN.Font = Enum.Font.Cartoon
             lN.TextSize = 14
             lN.TextColor3 = DN.text
             lN.Text = "-"
@@ -12166,7 +12468,7 @@
             YN.Position = UDim2.new(1, -28, 0.5, -12)
             YN.BackgroundColor3 = DN.bgCard
             YN.BorderSizePixel = 0
-            YN.Font = Enum.Font.GothamBold
+            YN.Font = Enum.Font.Cartoon
             YN.TextSize = 12
             YN.TextColor3 = DN.text
             YN.Text = "X"
@@ -12205,7 +12507,7 @@
               of.Size = UDim2.new(0.33, -4, 1, 0)
               of.BackgroundColor3 = DN.bgDark
               of.BorderSizePixel = 0
-              of.Font = Enum.Font.GothamBold
+              of.Font = Enum.Font.Cartoon
               of.TextSize = 11
               of.TextColor3 = DN.textMuted
               of.Text = pf
@@ -12268,7 +12570,7 @@
               hf.Size = UDim2.new(0.48, 0, 1, 0)
               hf.Position = UDim2.fromOffset(14, 0)
               hf.BackgroundTransparency = 1
-              hf.Font = Enum.Font.GothamMedium
+              hf.Font = Enum.Font.Cartoon
               hf.TextSize = 12
               hf.TextColor3 = DN.text
               hf.TextXAlignment = Enum.TextXAlignment.Left
@@ -12282,7 +12584,7 @@
             vN.Size = UDim2.fromOffset(90, 26)
             vN.Position = UDim2.new(1, -104, 0.5, -13)
             vN.BackgroundColor3 = DN.bgDark
-            vN.Font = Enum.Font.GothamBold
+            vN.Font = Enum.Font.Cartoon
             vN.TextSize = 11
             vN.TextColor3 = DN.text
             vN.Text = p and "Mobile" or "PC"
@@ -12297,7 +12599,7 @@
               vN.Position = UDim2.new(1, -170 + (hf - 1) * 56, 0.5, -13)
               vN.BackgroundColor3 = ff[1] == "HARD" and DN.accent or DN.bgDark
               vN.BorderSizePixel = 0
-              vN.Font = Enum.Font.GothamBold
+              vN.Font = Enum.Font.Cartoon
               vN.TextSize = 10
               vN.TextColor3 = ff[1] == "HARD" and DN.white or DN.textMuted
               vN.Text = ff[1]
@@ -12311,7 +12613,7 @@
             dN.Size = UDim2.new(1, 0, 0, 44)
             dN.BackgroundColor3 = DN.accent
             dN.BorderSizePixel = 0
-            dN.Font = Enum.Font.GothamBold
+            dN.Font = Enum.Font.Cartoon
             dN.TextSize = 15
             dN.TextColor3 = DN.white
             dN.Text = "ACTIVATE"
@@ -12326,7 +12628,7 @@
             mN.Size = UDim2.fromOffset(92, 24)
             mN.Position = UDim2.new(1, -106, 0.5, -12)
             mN.BackgroundTransparency = 1
-            mN.Font = Enum.Font.GothamBold
+            mN.Font = Enum.Font.Cartoon
             mN.TextSize = 10
             mN.TextColor3 = DN.textMuted
             mN.Text = "LAGGER: OFF"
@@ -12348,7 +12650,7 @@
             _f = Instance.new("TextLabel", pf)
             _f.Size = UDim2.new(1, 0, 0, 30)
             _f.BackgroundTransparency = 1
-            _f.Font = Enum.Font.GothamMedium
+            _f.Font = Enum.Font.Cartoon
             _f.TextSize = 12
             _f.TextColor3 = DN.textMuted
             _f.Text = "Press a key to set activate bind"
@@ -12360,7 +12662,7 @@
             KN.BackgroundColor3 = DN.bgCard
             KN.BackgroundTransparency = 0.2
             KN.BorderSizePixel = 0
-            KN.Font = Enum.Font.GothamBold
+            KN.Font = Enum.Font.Cartoon
             KN.TextSize = 14
             KN.TextColor3 = DN.text
             KN.Text = XN(jN)
@@ -12378,7 +12680,7 @@
             cN.Size = UDim2.fromOffset(80, 20)
             cN.Position = UDim2.new(1, -94, 0, 0)
             cN.BackgroundTransparency = 1
-            cN.Font = Enum.Font.GothamBold
+            cN.Font = Enum.Font.Cartoon
             cN.TextColor3 = DN.text
             cN.TextSize = 10
             cN.TextXAlignment = Enum.TextXAlignment.Right
@@ -12419,7 +12721,7 @@
             hf.Size = UDim2.fromOffset(50, 26)
             hf.Position = UDim2.new(1, -86, 0.5, -13)
             hf.BackgroundTransparency = 1
-            hf.Font = Enum.Font.GothamBold
+            hf.Font = Enum.Font.Cartoon
             hf.TextSize = 12
             hf.TextColor3 = DN.text
             hf.Text = "100%"
@@ -12458,7 +12760,7 @@
             Qf.Position = UDim2.new(1, -84, 0.5, -13)
             Qf.BackgroundColor3 = DN.accent
             Qf.BorderSizePixel = 0
-            Qf.Font = Enum.Font.GothamBold
+            Qf.Font = Enum.Font.Cartoon
             Qf.TextSize = 11
             Qf.TextColor3 = DN.white
             Qf.Text = "RESET"
@@ -12482,7 +12784,7 @@
             pf.Size = UDim2.new(1, -28, 1, 0)
             pf.Position = UDim2.fromOffset(14, 0)
             pf.BackgroundTransparency = 1
-            pf.Font = Enum.Font.GothamBold
+            pf.Font = Enum.Font.Cartoon
             pf.TextSize = 11
             pf.TextColor3 = Color3.fromRGB(78, 78, 84)
             pf.TextXAlignment = Enum.TextXAlignment.Left
@@ -12494,7 +12796,7 @@
             NN.Position = UDim2.new(1, -136, 0.5, -12)
             NN.BackgroundColor3 = DN.bgCard
             NN.BorderSizePixel = 0
-            NN.Font = Enum.Font.GothamBold
+            NN.Font = Enum.Font.Cartoon
             NN.TextSize = 11
             NN.TextColor3 = DN.text
             NN.Text = "LAG: OFF"
@@ -13222,7 +13524,7 @@
             title.Size = UDim2.new(1, 0, 0, 26)
             title.Position = UDim2.fromOffset(0, 6)
             title.BackgroundTransparency = 1
-            title.Font = Enum.Font.GothamBlack
+            title.Font = Enum.Font.Cartoon
             title.Text = "BYPASS"
             title.TextColor3 = Color3.fromRGB(160, 225, 255)
             title.TextSize = 16
@@ -13232,7 +13534,7 @@
             status.Size = UDim2.new(1, 0, 0, 18)
             status.Position = UDim2.fromOffset(0, 32)
             status.BackgroundTransparency = 1
-            status.Font = Enum.Font.GothamMedium
+            status.Font = Enum.Font.Cartoon
             status.Text = "Desactive"
             status.TextColor3 = Color3.fromRGB(255, 100, 100)
             status.TextSize = 11
@@ -13244,7 +13546,7 @@
             toggleBtn.BackgroundColor3 = Color3.fromRGB(18, 48, 92)
             toggleBtn.BorderSizePixel = 0
             toggleBtn.AutoButtonColor = false
-            toggleBtn.Font = Enum.Font.GothamBold
+            toggleBtn.Font = Enum.Font.Cartoon
             toggleBtn.Text = "ACTIVER BYPASS"
             toggleBtn.TextColor3 = Color3.fromRGB(160, 225, 255)
             toggleBtn.TextSize = 12
@@ -13257,7 +13559,7 @@
             versionBtn.BackgroundColor3 = Color3.fromRGB(12, 34, 70)
             versionBtn.BorderSizePixel = 0
             versionBtn.AutoButtonColor = false
-            versionBtn.Font = Enum.Font.GothamBold
+            versionBtn.Font = Enum.Font.Cartoon
             versionBtn.Text = "V1"
             versionBtn.TextColor3 = Color3.fromRGB(160, 225, 255)
             versionBtn.TextSize = 10
@@ -13270,7 +13572,7 @@
             modeBtn.BackgroundColor3 = Color3.fromRGB(12, 34, 70)
             modeBtn.BorderSizePixel = 0
             modeBtn.AutoButtonColor = false
-            modeBtn.Font = Enum.Font.GothamBold
+            modeBtn.Font = Enum.Font.Cartoon
             modeBtn.Text = "PC"
             modeBtn.TextColor3 = Color3.fromRGB(160, 225, 255)
             modeBtn.TextSize = 10
@@ -13282,7 +13584,7 @@
             powerBox.Position = UDim2.fromOffset(16, 130)
             powerBox.BackgroundColor3 = Color3.fromRGB(9, 24, 52)
             powerBox.BorderSizePixel = 0
-            powerBox.Font = Enum.Font.GothamBold
+            powerBox.Font = Enum.Font.Cartoon
             powerBox.Text = "97000"
             powerBox.TextColor3 = Color3.fromRGB(160, 225, 255)
             powerBox.TextSize = 10
@@ -13294,7 +13596,7 @@
             powerLbl.Size = UDim2.fromOffset(50, 24)
             powerLbl.Position = UDim2.fromOffset(100, 130)
             powerLbl.BackgroundTransparency = 1
-            powerLbl.Font = Enum.Font.GothamBold
+            powerLbl.Font = Enum.Font.Cartoon
             powerLbl.Text = "POWER"
             powerLbl.TextColor3 = Color3.fromRGB(160, 225, 255)
             powerLbl.TextSize = 9
@@ -13307,7 +13609,7 @@
             autoBtn.BackgroundColor3 = Color3.fromRGB(12, 34, 70)
             autoBtn.BorderSizePixel = 0
             autoBtn.AutoButtonColor = false
-            autoBtn.Font = Enum.Font.GothamBold
+            autoBtn.Font = Enum.Font.Cartoon
             autoBtn.Text = "AUTO ON STEAL : OFF"
             autoBtn.TextColor3 = Color3.fromRGB(115, 190, 230)
             autoBtn.TextSize = 10
@@ -13320,7 +13622,7 @@
             spamToggle.BackgroundColor3 = Color3.fromRGB(12, 34, 70)
             spamToggle.BorderSizePixel = 0
             spamToggle.AutoButtonColor = false
-            spamToggle.Font = Enum.Font.GothamBold
+            spamToggle.Font = Enum.Font.Cartoon
             spamToggle.Text = "SPAM : OFF"
             spamToggle.TextColor3 = Color3.fromRGB(160, 225, 255)
             spamToggle.TextSize = 10
@@ -13332,7 +13634,7 @@
             spamRateBox.Position = UDim2.fromOffset(16, 234)
             spamRateBox.BackgroundColor3 = Color3.fromRGB(9, 24, 52)
             spamRateBox.BorderSizePixel = 0
-            spamRateBox.Font = Enum.Font.GothamBold
+            spamRateBox.Font = Enum.Font.Cartoon
             spamRateBox.Text = "6"
             spamRateBox.TextColor3 = Color3.fromRGB(160, 225, 255)
             spamRateBox.TextSize = 10
@@ -13344,7 +13646,7 @@
             spamRateLbl.Size = UDim2.fromOffset(80, 22)
             spamRateLbl.Position = UDim2.fromOffset(82, 234)
             spamRateLbl.BackgroundTransparency = 1
-            spamRateLbl.Font = Enum.Font.GothamBold
+            spamRateLbl.Font = Enum.Font.Cartoon
             spamRateLbl.Text = "ms SPAM"
             spamRateLbl.TextColor3 = Color3.fromRGB(115, 190, 230)
             spamRateLbl.TextSize = 9
@@ -13357,7 +13659,7 @@
             keybindBtn.BackgroundColor3 = Color3.fromRGB(9, 24, 52)
             keybindBtn.BorderSizePixel = 0
             keybindBtn.AutoButtonColor = false
-            keybindBtn.Font = Enum.Font.GothamBold
+            keybindBtn.Font = Enum.Font.Cartoon
             keybindBtn.Text = "5"
             keybindBtn.TextColor3 = Color3.fromRGB(160, 225, 255)
             keybindBtn.TextSize = 10
@@ -13370,7 +13672,7 @@
             closeBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 30)
             closeBtn.BorderSizePixel = 0
             closeBtn.AutoButtonColor = false
-            closeBtn.Font = Enum.Font.GothamBold
+            closeBtn.Font = Enum.Font.Cartoon
             closeBtn.Text = "X"
             closeBtn.TextColor3 = Color3.fromRGB(255, 120, 130)
             closeBtn.TextSize = 11
@@ -13704,7 +14006,7 @@
       t.Text = "Toggle UI"
       t.TextColor3 = Color3.fromRGB(105, 30, 38)
       t.TextSize = 10
-      t.Font = Enum.Font.GothamBold
+      t.Font = Enum.Font.Cartoon
       t.TextXAlignment = Enum.TextXAlignment.Left
       t.TextYAlignment = Enum.TextYAlignment.Center
       local z = Instance.new("TextButton", d)
@@ -13716,7 +14018,7 @@
       z.Text = E["Toggle UI"] and (zN(E["Toggle UI"])) or "-"
       z.TextColor3 = Color3.fromRGB(238, 238, 242)
       z.TextSize = 9
-      z.Font = Enum.Font.GothamBold
+      z.Font = Enum.Font.Cartoon
       z.AutoButtonColor = false
       Instance.new("UICorner", z).CornerRadius = UDim.new(0, 14)
       t = Instance.new("UIStroke", z)
@@ -14196,7 +14498,7 @@
     d.Text = "Preset: " .. x
     d.TextColor3 = Color3.fromRGB(255, 255, 255)
     d.TextSize = 11
-    d.Font = Enum.Font.GothamBold
+    d.Font = Enum.Font.Cartoon
     d.AutoButtonColor = false
     Instance.new("UICorner", d).CornerRadius = UDim.new(0, 14)
     v(d, function()
@@ -14237,7 +14539,7 @@
       r.Text = F[v]
       r.TextColor3 = Color3.fromRGB(220, 220, 230)
       r.TextSize = 11
-      r.Font = Enum.Font.GothamBold
+      r.Font = Enum.Font.Cartoon
       r.TextXAlignment = Enum.TextXAlignment.Left
       local o = Instance.new("TextButton", R)
       o.Size = UDim2.new(0.5, -10, 0, 20)
@@ -14247,7 +14549,7 @@
       o.Text = ""
       o.TextColor3 = Color3.fromRGB(255, 255, 255)
       o.TextSize = 10
-      o.Font = Enum.Font.Gotham
+      o.Font = Enum.Font.Cartoon
       o.AutoButtonColor = false
       Instance.new("UICorner", o).CornerRadius = UDim.new(0, 12)
       o.Activated:Connect(function()
@@ -14261,7 +14563,7 @@
     R.Text = "Master: activa/desactiva todas. Toca una animacion para pasar a la siguiente."
     R.TextColor3 = Color3.fromRGB(188, 188, 195)
     R.TextSize = 10
-    R.Font = Enum.Font.Gotham
+    R.Font = Enum.Font.Cartoon
     R.TextXAlignment = Enum.TextXAlignment.Left
     QN(x)
     if _G.__savedAnimations then
@@ -14416,21 +14718,23 @@
       g.Name = "AnonymousModernPanel"
       local R, o =
         {
-          -- Premium spacing & sizing (visual only — logic untouched)
-          headerH = p and 56 or 68,
-          pageGap = p and 8 or 10,
-          sectionH = p and 30 or 34,
-          inputH = p and 36 or 42,
-          toggleH = p and 40 or 48,
-          toggleBindH = p and 52 or 60,
-          actionH = p and 38 or 46,
+          -- Crystal v9 spacing & sizing (visual only — logic untouched)
+          headerH = p and 58 or 72,
+          pageGap = p and 10 or 12,
+          sectionH = p and 32 or 36,
+          inputH = p and 38 or 44,
+          toggleH = p and 42 or 52,
+          toggleBindH = p and 54 or 64,
+          actionH = p and 40 or 48,
           textSize = p and 12 or 14,
-          titleSize = p and 13 or 16,
-          sectionSize = p and 11 or 12,
-          categoryH = p and 36 or 44,
+          titleSize = p and 14 or 17,
+          sectionSize = p and 11 or 13,
+          categoryH = p and 38 or 46,
         }, workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or H
-      local side = p and (math.clamp(math.floor(math.min(o.X, o.Y) * 0.6), 300, 380)) or 500
-      local H, a = side, side
+      -- Refined panel size (slightly roomier, still compact on mobile)
+      local sideW = p and (math.clamp(math.floor(o.X * 0.56), 290, 350)) or 440
+      local sideH = p and (math.clamp(math.floor(o.Y * 0.56), 340, 420)) or 520
+      local H, a = sideW, sideH
       g.Size = UDim2.new(0, H, 0, a)
       z = _G._AnonymousHub_UI_MenuPos
       if z and z.x ~= nil and z.y ~= nil then
@@ -14443,17 +14747,84 @@
       g.ClipsDescendants = false
       g.Visible = k
       local f = {
-        -- Red premium (7UP layout, red colors)
-        bg = Color3.fromRGB(14, 10, 12),
-        bgDark = Color3.fromRGB(8, 6, 8),
-        row = Color3.fromRGB(28, 18, 20),
-        accent = Color3.fromRGB(220, 32, 46),
-        accentDim = Color3.fromRGB(132, 12, 28),
-        text = Color3.fromRGB(255, 255, 255),
-        textDim = Color3.fromRGB(255, 180, 190),
-        textMuted = Color3.fromRGB(180, 120, 130),
-        divider = Color3.fromRGB(90, 30, 40),
+        -- Crystal v9 — deeper glass dark + vivid accent
+        bg = Color3.fromRGB(10, 10, 14),
+        bgDark = Color3.fromRGB(6, 6, 9),
+        row = Color3.fromRGB(18, 18, 24),
+        accent = Color3.fromRGB(242, 48, 68),
+        accentDim = Color3.fromRGB(78, 18, 28),
+        text = Color3.fromRGB(250, 250, 255),
+        textDim = Color3.fromRGB(190, 190, 205),
+        textMuted = Color3.fromRGB(118, 118, 138),
+        divider = Color3.fromRGB(42, 42, 54),
       }
+
+      -- ===== GLOBAL UI CLICK / TOGGLE SOUNDS (v9) =====
+      do
+        _G.__AnonymousUIClickSound = _G.__AnonymousUIClickSound ~= false
+        local SFX = _G.__AnonymousUISFX_IDS or {
+          click = "rbxassetid://6895079853",
+          toggleOn = "rbxassetid://9118823101",
+          toggleOff = "rbxassetid://6895079853",
+        }
+        local playUiSfx = _G.__AnonymousUISfx
+        if type(playUiSfx) ~= "function" then
+          local SoundService = game:GetService("SoundService")
+          local lastPlay = 0
+          playUiSfx = function(id, vol)
+            if _G.__AnonymousUIClickSound == false then return end
+            local now = os.clock()
+            if now - lastPlay < 0.025 then return end
+            lastPlay = now
+            pcall(function()
+              local s = Instance.new("Sound")
+              s.SoundId = id
+              s.Volume = vol or 0.4
+              s.Parent = SoundService
+              s:Play()
+              task.delay(1.2, function() pcall(function() s:Destroy() end) end)
+            end)
+          end
+          _G.__AnonymousUISfx = playUiSfx
+        end
+        _G.__AnonymousPlayUiClick = function()
+          playUiSfx(SFX.click, 0.42)
+        end
+        _G.__AnonymousPlayUiToggle = function(on)
+          if on then playUiSfx(SFX.toggleOn or SFX.click, 0.38, 1.05)
+          else playUiSfx(SFX.toggleOff or SFX.click, 0.32, 0.92) end
+        end
+        -- Auto-hook all GuiButtons under hub (panel + auto steal bar + restore)
+        local hooked = setmetatable({}, { __mode = "k" })
+        local function hookBtn(btn)
+          if not btn or hooked[btn] then return end
+          if not (btn:IsA("GuiButton") or btn:IsA("TextButton") or btn:IsA("ImageButton")) then return end
+          hooked[btn] = true
+          btn.MouseButton1Click:Connect(function()
+            if _G.__AnonymousUIClickSound == false then return end
+            playUiSfx(SFX.click, 0.38)
+          end)
+        end
+        task.defer(function()
+          task.wait(0.15)
+          if h and h.Parent then
+            for _, d in ipairs(h:GetDescendants()) do
+              hookBtn(d)
+            end
+            _G.__AnonymousTrackConn(h.DescendantAdded:Connect(function(d)
+              task.defer(function() hookBtn(d) end)
+            end))
+          end
+        end)
+        -- open panel sound once
+        task.defer(function()
+          task.wait(0.35)
+          if _G.__AnonymousPlayUiOpen and g and g.Visible then
+            pcall(_G.__AnonymousPlayUiOpen)
+          end
+        end)
+      end
+
       -- Always keep a readable dark UI; only accent changes with background
       local function __AnonymousDetectThemeFromEntry(entry)
         local secondary = "GREEN"
@@ -14478,37 +14849,56 @@
         return "BLACK", secondary
       end
       local function __AnonymousBuildPalette(primary, secondary)
-        local accent, accentDim, divider, bg, bgDark, row
+        secondary = string.upper(tostring(secondary or "RED"))
+        local accent, accentDim, divider, bg, bgDark, row, textDim, textMuted
         if secondary == "BLUE" then
-          accent = Color3.fromRGB(80, 170, 255)
-          accentDim = Color3.fromRGB(40, 100, 180)
-          divider = Color3.fromRGB(50, 90, 140)
-          bg = Color3.fromRGB(10, 14, 22); bgDark = Color3.fromRGB(6, 10, 16); row = Color3.fromRGB(18, 26, 38)
-        elseif secondary == "CONTRAST" then
+          accent = Color3.fromRGB(64, 170, 255)
+          accentDim = Color3.fromRGB(24, 78, 160)
+          divider = Color3.fromRGB(40, 90, 150)
+          bg = Color3.fromRGB(6, 12, 22); bgDark = Color3.fromRGB(3, 8, 16); row = Color3.fromRGB(14, 24, 40)
+          textDim = Color3.fromRGB(160, 210, 255); textMuted = Color3.fromRGB(100, 150, 200)
+        elseif secondary == "PURPLE" then
+          accent = Color3.fromRGB(168, 85, 247)
+          accentDim = Color3.fromRGB(90, 40, 150)
+          divider = Color3.fromRGB(90, 50, 130)
+          bg = Color3.fromRGB(12, 8, 20); bgDark = Color3.fromRGB(6, 4, 12); row = Color3.fromRGB(24, 16, 36)
+          textDim = Color3.fromRGB(210, 180, 255); textMuted = Color3.fromRGB(150, 120, 190)
+        elseif secondary == "GREEN" then
+          accent = Color3.fromRGB(52, 211, 153)
+          accentDim = Color3.fromRGB(20, 110, 80)
+          divider = Color3.fromRGB(30, 100, 70)
+          bg = Color3.fromRGB(4, 14, 10); bgDark = Color3.fromRGB(2, 10, 7); row = Color3.fromRGB(12, 28, 20)
+          textDim = Color3.fromRGB(140, 255, 200); textMuted = Color3.fromRGB(80, 190, 140)
+        elseif secondary == "ORANGE" then
+          accent = Color3.fromRGB(251, 146, 60)
+          accentDim = Color3.fromRGB(150, 70, 20)
+          divider = Color3.fromRGB(140, 80, 40)
+          bg = Color3.fromRGB(16, 10, 6); bgDark = Color3.fromRGB(10, 6, 4); row = Color3.fromRGB(32, 20, 12)
+          textDim = Color3.fromRGB(255, 200, 150); textMuted = Color3.fromRGB(200, 140, 90)
+        elseif secondary == "PINK" then
+          accent = Color3.fromRGB(244, 114, 182)
+          accentDim = Color3.fromRGB(140, 40, 90)
+          divider = Color3.fromRGB(130, 50, 90)
+          bg = Color3.fromRGB(16, 8, 14); bgDark = Color3.fromRGB(10, 4, 8); row = Color3.fromRGB(32, 16, 26)
+          textDim = Color3.fromRGB(255, 180, 220); textMuted = Color3.fromRGB(200, 120, 160)
+        elseif secondary == "CYAN" then
+          accent = Color3.fromRGB(34, 211, 238)
+          accentDim = Color3.fromRGB(20, 110, 130)
+          divider = Color3.fromRGB(30, 110, 130)
+          bg = Color3.fromRGB(6, 14, 16); bgDark = Color3.fromRGB(3, 10, 12); row = Color3.fromRGB(12, 28, 32)
+          textDim = Color3.fromRGB(160, 240, 255); textMuted = Color3.fromRGB(90, 180, 200)
+        elseif secondary == "CONTRAST" or secondary == "WHITE" then
           accent = Color3.fromRGB(240, 240, 245)
           accentDim = Color3.fromRGB(160, 160, 170)
           divider = Color3.fromRGB(90, 90, 100)
           bg = Color3.fromRGB(12, 12, 14); bgDark = Color3.fromRGB(6, 6, 8); row = Color3.fromRGB(24, 24, 28)
-        elseif secondary == "RED" then
-          accent = Color3.fromRGB(220, 32, 46)
-          accentDim = Color3.fromRGB(132, 12, 28)
-          divider = Color3.fromRGB(90, 30, 40)
+          textDim = Color3.fromRGB(220, 220, 230); textMuted = Color3.fromRGB(160, 160, 170)
+        else -- RED default
+          accent = Color3.fromRGB(242, 48, 68)
+          accentDim = Color3.fromRGB(120, 16, 28)
+          divider = Color3.fromRGB(100, 32, 42)
           bg = Color3.fromRGB(14, 10, 12); bgDark = Color3.fromRGB(8, 6, 8); row = Color3.fromRGB(28, 18, 20)
-        else
-          -- 7UP GREEN (default)
-          accent = Color3.fromRGB(220, 32, 46)
-          accentDim = Color3.fromRGB(132, 12, 28)
-          divider = Color3.fromRGB(25, 90, 55)
-          bg = Color3.fromRGB(4, 14, 9); bgDark = Color3.fromRGB(1, 18, 9); row = Color3.fromRGB(10, 25, 18)
-        end
-        local textDim = Color3.fromRGB(220, 220, 230)
-        local textMuted = Color3.fromRGB(160, 160, 170)
-        if secondary == "GREEN" then
-          textDim = Color3.fromRGB(120, 255, 190)
-          textMuted = Color3.fromRGB(80, 200, 140)
-        elseif secondary == "RED" then
-          textDim = Color3.fromRGB(255, 180, 190)
-          textMuted = Color3.fromRGB(180, 120, 130)
+          textDim = Color3.fromRGB(255, 180, 190); textMuted = Color3.fromRGB(180, 120, 130)
         end
         return {
           bg = bg,
@@ -14520,6 +14910,7 @@
           textDim = textDim,
           textMuted = textMuted,
           divider = divider,
+          name = secondary,
         }
       end
       local function __AnonymousApplyPaletteToGui(root, palette)
@@ -14587,7 +14978,12 @@
         end
       end
       local function __AnonymousSetThemeColors(primary, secondary)
-        secondary = (secondary == "BLUE" or secondary == "CONTRAST") and secondary or "RED"
+        local allowed = {
+          RED = true, BLUE = true, PURPLE = true, GREEN = true,
+          ORANGE = true, PINK = true, CYAN = true, CONTRAST = true, WHITE = true,
+        }
+        secondary = string.upper(tostring(secondary or "RED"))
+        if not allowed[secondary] then secondary = "RED" end
         _G.__AnonymousThemePrimary = "BLACK"
         _G.__AnonymousThemeSecondary = secondary
         local palette = __AnonymousBuildPalette("BLACK", secondary)
@@ -14595,11 +14991,16 @@
           f[k] = v
         end
         _G.__AnonymousThemeAccent = palette.accent
+        _G.__AnonymousThemePalette = palette
+        -- repaint main panel + entire ScreenGui (sidebar, toasts, restore, auto steal bar)
         if g and g.Parent then
-          __AnonymousApplyPaletteToGui(g, palette)
+          pcall(__AnonymousApplyPaletteToGui, g, palette)
+        end
+        if h and h.Parent then
+          pcall(__AnonymousApplyPaletteToGui, h, palette)
         end
         pcall(function()
-          local titleBg = g:FindFirstChild("AnonymousHubTitleBackground", true)
+          local titleBg = g and g:FindFirstChild("AnonymousHubTitleBackground", true)
           if titleBg then
             local t = titleBg:FindFirstChild("HubTitle")
             if t then
@@ -14607,42 +15008,101 @@
               t.TextTransparency = 0
             end
           end
-          local hdr = g:FindFirstChild("HeaderFrame", true)
+          local hdr = g and g:FindFirstChild("HeaderFrame", true)
           if hdr then
-            local bgb = hdr:FindFirstChild("BGButton")
-            if bgb then
-              bgb.TextColor3 = palette.accent
-              bgb.BackgroundColor3 = palette.row
+            for _, name in ipairs({ "BGButton", "ThemeButton" }) do
+              local btn = hdr:FindFirstChild(name)
+              if btn then
+                btn.TextColor3 = palette.accent
+                btn.BackgroundColor3 = palette.row
+                local st = btn:FindFirstChildOfClass("UIStroke")
+                if st then st.Color = palette.accentDim end
+              end
             end
           end
+          -- outer panel stroke / glass
+          local inner = g and g:FindFirstChild("Inner")
+          if inner then
+            inner.BackgroundColor3 = palette.bgDark
+            inner.BackgroundTransparency = 0.12
+          end
+          if c and c.Parent then
+            c.BackgroundColor3 = palette.bg
+            local os = c:FindFirstChildOfClass("UIStroke")
+            if os then os.Color = palette.accent end
+          end
         end)
-        -- dim background image so UI text stays clear
         pcall(function()
           local img = _G.__AnonymousPanelBackground
           if img and img.Parent then
             img.ImageTransparency = 0.35
           end
         end)
-        -- keep inner panel solid enough
+        -- Auto Steal bar follows theme
         pcall(function()
-          local inner = g:FindFirstChild("Inner")
-          if inner then
-            inner.BackgroundColor3 = palette.bgDark
-            inner.BackgroundTransparency = 0.15
+          if _G.__AnonymousApplyAutoStealBarTheme then
+            _G.__AnonymousApplyAutoStealBarTheme(secondary)
+          end
+          local bar = h and h:FindFirstChild("AnonymousAutoGrabBar")
+          if bar then
+            bar.BackgroundColor3 = palette.bgDark
+            local st = bar:FindFirstChildOfClass("UIStroke")
+            if st then st.Color = palette.accent end
+            local badge = bar:FindFirstChild("StealModeBadge")
+            if badge then badge.BackgroundColor3 = palette.accent end
+            local title = bar:FindFirstChild("StealTitle")
+            if title then title.TextColor3 = palette.text end
+            local pct = bar:FindFirstChild("PercentLabel")
+            if pct then pct.TextColor3 = palette.accent end
+            local fill = bar:FindFirstChild("ProgressTrack", true)
+            if fill then
+              local pf = fill:FindFirstChild("ProgressFill")
+              if pf then pf.BackgroundColor3 = palette.accent end
+            end
           end
         end)
+        pcall(function()
+          if _G.__AnonymousShowToast then
+            _G.__AnonymousShowToast("Theme · " .. secondary, true)
+          end
+          if _G.__AnonymousPlayUiClick then _G.__AnonymousPlayUiClick() end
+        end)
+        pcall(function() if oN then oN() end end)
         return palette
       end
       _G.__AnonymousSetThemeColors = __AnonymousSetThemeColors
       __AnonymousSetThemeColors("BLACK", _G.__AnonymousThemeSecondary or "RED")
       local ALL_BACKGROUNDS = {
         custom_user = {
-          Black = "rbxassetid://0", -- solid black (no image)
-          Dark1 = "rbxassetid://128441021511316",
-          Dark2 = "rbxassetid://11723817205",
+          Img1 = "140145334415261",
+          Img2 = "70585772187354",
+          Img3 = "139321042825616",
+          Img4 = "116890020704841",
+          Img5 = "126519267203224",
+          Img6 = "73290556702979",
         },
-        anonymous_roblox = {},
-        anonymous_urls = {},
+        anonymous_roblox = {
+          scene1 = "73963271683049",
+          scene2 = "87425565124554",
+          scene3 = "93776108213038",
+          bg04 = "77785523954153",
+          bg05 = "122815453745063",
+          bg06 = "77581705786454",
+          bg07 = "86508089972764",
+          bg08 = "99747773532595",
+          bg09 = "139362780018712",
+        },
+        anonymous_urls = {
+          bg15 = "https://files.catbox.moe/5j8ga6.jpg",
+          bg16 = "https://files.catbox.moe/a3ypd8.jpg",
+          bg17 = "https://files.catbox.moe/om9irg.png",
+          bg18 = "https://files.catbox.moe/mw3stx.jpg",
+          bg19 = "https://files.catbox.moe/dgev5r.jpg",
+          bg20 = "https://files.catbox.moe/6jh0ge.jpg",
+          bg21 = "https://files.catbox.moe/87erl9.png",
+          bg22 = "https://files.catbox.moe/alsa0o.jpg",
+          bg23 = "https://files.catbox.moe/w8kj4j.jpg",
+        },
       }
       _G.__AnonymousALL_BACKGROUNDS = ALL_BACKGROUNDS
 
@@ -14792,9 +15252,9 @@
       end
       _G.__AnonymousBG_FLAT_LIST = BG_FLAT_LIST
 
-      _G.__AnonymousThemePrimary = "BLACK"
+      _G.__AnonymousThemePrimary = _G.__AnonymousThemePrimary or "BLACK"
       _G.__AnonymousThemeSecondary = _G.__AnonymousThemeSecondary or "RED"
-      _G.__AnonymousSelectedBGId = _G.__AnonymousSelectedBGId or "custom_user.Black"
+      _G.__AnonymousSelectedBGId = _G.__AnonymousSelectedBGId or nil
       _G.__AnonymousSelectedBGIndex = tonumber(_G.__AnonymousSelectedBGIndex) or 1
 
       local function __AnonymousGetSelectedBackgroundSource()
@@ -14928,17 +15388,27 @@
       local c = Instance.new("Frame")
       c.Name = "Inner"
       c.Size = UDim2.new(1, 0, 1, 0)
-      c.BackgroundColor3 = f.bgDark
-      c.BackgroundTransparency = 0.42
+      c.BackgroundColor3 = f.bg
+      c.BackgroundTransparency = 0.08
       c.BorderSizePixel = 0
       c.ClipsDescendants = true
       c.Parent = g
-      Y(c, 18) -- premium main panel radius
+      Y(c, 20)
       do
-        local outerStroke = F(c, f.accentDim, 1.6)
+        local outerStroke = F(c, f.accent, 1.8)
         if outerStroke then
-          outerStroke.Transparency = 0.35
+          outerStroke.Transparency = 0.55
         end
+        -- soft top highlight
+        local topLine = Instance.new("Frame")
+        topLine.Name = "TopHighlight"
+        topLine.Size = UDim2.new(1, 0, 0, 1)
+        topLine.Position = UDim2.new(0, 0, 0, 0)
+        topLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        topLine.BackgroundTransparency = 0.88
+        topLine.BorderSizePixel = 0
+        topLine.ZIndex = 50
+        topLine.Parent = c
       end
       local panelBgImg = Instance.new("ImageLabel")
       panelBgImg.Name = "AnonymousHubBackground"
@@ -14974,65 +15444,40 @@
           if string.match(src, "^%d+$") then
             src = "rbxassetid://" .. src
           end
-          -- solid black: no image, pure black panel
-          local isBlack = src == "rbxassetid://0" or src == "0" or (entry and entry.name == "Black")
-          if isBlack then
-            img.Image = ""
-            img.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            img.BackgroundTransparency = 0
-            img.ImageTransparency = 1
-          else
-            img.Image = src
-            img.ImageColor3 = Color3.new(1, 1, 1)
-            img.ImageTransparency = 0.08
-            img.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            img.BackgroundTransparency = 1
-          end
+          img.Image = src
+          img.ImageColor3 = Color3.new(1, 1, 1)
+          img.ImageTransparency = 0.05
+          img.BackgroundTransparency = 1
           img.Visible = true
           img.ZIndex = 0
           if c and c.Parent then
-            c.BackgroundTransparency = isBlack and 0.12 or 0.55
+            c.BackgroundTransparency = 0.55
           end
           local shade = c:FindFirstChild("UnifiedBackgroundShade")
           if shade then
-            shade.BackgroundTransparency = isBlack and 0.5 or 0.9
+            shade.BackgroundTransparency = 0.9
             shade.Visible = true
-          end
-        else
-          -- fallback pure black
-          img.Image = ""
-          img.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-          img.BackgroundTransparency = 0
-          img.ImageTransparency = 1
-          if c and c.Parent then
-            c.BackgroundTransparency = 0.12
           end
         end
       end
       _G.__AnonymousRefreshPanelBackground = __AnonymousRefreshPanelBackground
-      -- default pure black background
+      -- force first available rbx background immediately
       do
         local list = _G.__AnonymousBG_FLAT_LIST or BG_FLAT_LIST
         if type(list) == "table" then
-          local picked = false
           for i, e in ipairs(list) do
-            if e and (e.name == "Black" or e.id == "custom_user.Black") then
-              _G.__AnonymousSelectedBGIndex = i
-              _G.__AnonymousSelectedBGId = e.id
-              panelBgImg.Image = ""
-              panelBgImg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-              panelBgImg.BackgroundTransparency = 0
-              panelBgImg.ImageTransparency = 1
-              picked = true
-              break
+            local raw = e and (e.raw or e.source)
+            if type(raw) == "string" and (string.match(raw, "^%d+$") or string.sub(raw, 1, 11) == "rbxassetid://") then
+              local src = __AnonymousToImageSource(raw, false)
+              if src then
+                panelBgImg.Image = src
+                e.source = src
+                e.resolved = true
+                _G.__AnonymousSelectedBGIndex = i
+                _G.__AnonymousSelectedBGId = e.id
+                break
+              end
             end
-          end
-          if not picked then
-            _G.__AnonymousSelectedBGIndex = 1
-            panelBgImg.Image = ""
-            panelBgImg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            panelBgImg.BackgroundTransparency = 0
-            panelBgImg.ImageTransparency = 1
           end
         end
       end
@@ -15091,9 +15536,28 @@
       o = Instance.new("Frame")
       o.Name = "HeaderFrame"
       o.Size = UDim2.new(1, 0, 0, R.headerH)
-      o.BackgroundTransparency = 1
+      o.BackgroundColor3 = f.bgDark
+      o.BackgroundTransparency = 0.25
+      o.BorderSizePixel = 0
       o.ZIndex = 10
       o.Parent = c
+      Y(o, 0)
+      do
+        local hs = Instance.new("UIStroke")
+        hs.Color = f.divider
+        hs.Thickness = 1
+        hs.Transparency = 0.5
+        hs.Parent = o
+        local bottomLine = Instance.new("Frame")
+        bottomLine.Name = "HeaderDivider"
+        bottomLine.Size = UDim2.new(1, 0, 0, 1)
+        bottomLine.Position = UDim2.new(0, 0, 1, -1)
+        bottomLine.BackgroundColor3 = f.accent
+        bottomLine.BackgroundTransparency = 0.65
+        bottomLine.BorderSizePixel = 0
+        bottomLine.ZIndex = 11
+        bottomLine.Parent = o
+      end
       k(o, g)
       a = Instance.new("Frame")
       a.Name = "HeaderStats"
@@ -15114,7 +15578,7 @@
         W.BackgroundTransparency = 1
         W.TextColor3 = f.text
         W.TextSize = 9
-        W.Font = Enum.Font.GothamBold
+        W.Font = Enum.Font.Cartoon
         W.TextXAlignment = Enum.TextXAlignment.Left
         W.TextTransparency = 0
         W.Visible = false
@@ -15127,7 +15591,7 @@
         w.BackgroundTransparency = 1
         w.TextColor3 = f.textDim
         w.TextSize = 9
-        w.Font = Enum.Font.GothamBold
+        w.Font = Enum.Font.Cartoon
         w.TextXAlignment = Enum.TextXAlignment.Left
         w.TextTransparency = 0
         w.Visible = false
@@ -15135,8 +15599,8 @@
       end
       a = Instance.new("Frame")
       a.Name = "AnonymousHubTitleBackground"
-      a.Size = UDim2.fromOffset(p and 150 or 180, p and 34 or 40)
-      a.Position = UDim2.new(0, 12, 0, (R.headerH - (p and 34 or 40)) / 2)
+      a.Size = UDim2.fromOffset(p and 180 or 220, p and 40 or 46)
+      a.Position = UDim2.new(0, 12, 0, (R.headerH - (p and 40 or 46)) / 2)
       a.BackgroundColor3 = f.bgDark
       a.BackgroundTransparency = 1
       a.BorderSizePixel = 0
@@ -15153,34 +15617,46 @@
       z.BackgroundTransparency = 1
       z.BorderSizePixel = 0
       z.Text = "ANONYMOUS"
-      -- Retro Blendy style: bubbly font + thick outline
+      -- Retro Blendy: thick bubbly cartoon logo
       z.TextColor3 = Color3.fromRGB(255, 255, 255)
       z.TextTransparency = 0
       z.TextStrokeTransparency = 0
       z.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-      z.TextSize = p and 18 or 22
+      z.TextSize = p and 22 or 28
       z.Font = Enum.Font.FredokaOne
       z.TextXAlignment = Enum.TextXAlignment.Left
       z.TextYAlignment = Enum.TextYAlignment.Center
       z.Visible = true
       z.ZIndex = 20
       z.Parent = a
-      -- Live active features counter (header)
+      -- Extra outline layers for thick blendy look
+      for i = 1, 3 do
+        local outline = Instance.new("TextLabel")
+        outline.Name = "HubTitleOutline" .. i
+        outline.AnchorPoint = z.AnchorPoint
+        outline.Position = z.Position + UDim2.fromOffset(i == 1 and -1 or (i == 2 and 1 or 0), i == 3 and 1 or 0)
+        outline.Size = z.Size
+        outline.BackgroundTransparency = 1
+        outline.BorderSizePixel = 0
+        outline.Text = "ANONYMOUS"
+        outline.TextColor3 = Color3.fromRGB(0, 0, 0)
+        outline.TextTransparency = 0
+        outline.TextStrokeTransparency = 1
+        outline.TextSize = z.TextSize
+        outline.Font = Enum.Font.FredokaOne
+        outline.TextXAlignment = Enum.TextXAlignment.Left
+        outline.TextYAlignment = Enum.TextYAlignment.Center
+        outline.ZIndex = 19
+        outline.Parent = a
+      end
+      -- Active features counter removed from UI
       local featureCountLabel = Instance.new("TextLabel")
       featureCountLabel.Name = "ActiveFeatureCount"
-      featureCountLabel.Size = UDim2.fromOffset(p and 72 or 88, p and 18 or 20)
-      featureCountLabel.Position = UDim2.new(0, p and 168 or 200, 0, (R.headerH - (p and 18 or 20)) / 2)
-      featureCountLabel.BackgroundColor3 = f.accentDim
-      featureCountLabel.BackgroundTransparency = 0.2
-      featureCountLabel.BorderSizePixel = 0
-      featureCountLabel.Text = "0 ON"
-      featureCountLabel.TextColor3 = Color3.fromRGB(255, 230, 235)
-      featureCountLabel.TextSize = p and 10 or 11
-      featureCountLabel.Font = Enum.Font.GothamBlack
-      featureCountLabel.ZIndex = 21
+      featureCountLabel.Visible = false
+      featureCountLabel.Size = UDim2.fromOffset(0, 0)
+      featureCountLabel.BackgroundTransparency = 1
+      featureCountLabel.Text = ""
       featureCountLabel.Parent = c
-      Y(featureCountLabel, 10)
-      F(featureCountLabel, f.accent, 1.2)
       local titleIcon = Instance.new("ImageLabel")
       titleIcon.Name = "AnonymousJesterLogo"
       titleIcon.Size = UDim2.fromOffset(titleIconSize, titleIconSize)
@@ -15220,13 +15696,144 @@
       bgBtn.BorderSizePixel = 0
       bgBtn.Text = "BG"
       bgBtn.TextColor3 = f.accent
-      bgBtn.Font = Enum.Font.GothamBlack
+      bgBtn.Font = Enum.Font.Cartoon
       bgBtn.TextSize = 12
       bgBtn.ZIndex = 12
       bgBtn.AutoButtonColor = false
       bgBtn.Parent = o
       Y(bgBtn, 8)
       F(bgBtn, f.accentDim, 1.2)
+
+      -- ===== THEME COLOR PICKER (full UI recolor) =====
+      local themeBtn = Instance.new("TextButton")
+      themeBtn.Name = "ThemeButton"
+      themeBtn.Size = UDim2.new(0, 44, 0, 30)
+      themeBtn.Position = UDim2.new(1, -132, 0, (R.headerH - 30) / 2)
+      themeBtn.BackgroundColor3 = f.row
+      themeBtn.BorderSizePixel = 0
+      themeBtn.Text = "THEME"
+      themeBtn.TextColor3 = f.accent
+      themeBtn.Font = Enum.Font.Cartoon
+      themeBtn.TextSize = 10
+      themeBtn.ZIndex = 12
+      themeBtn.AutoButtonColor = false
+      themeBtn.Parent = o
+      Y(themeBtn, 8)
+      F(themeBtn, f.accentDim, 1.2)
+
+      local themePanel = Instance.new("Frame")
+      themePanel.Name = "ThemeColorPanel"
+      themePanel.Size = UDim2.new(0, 196, 0, 210)
+      themePanel.Position = UDim2.new(1, -204, 0, R.headerH + 4)
+      themePanel.BackgroundColor3 = f.bgDark
+      themePanel.BackgroundTransparency = 0.04
+      themePanel.BorderSizePixel = 0
+      themePanel.Visible = false
+      themePanel.ZIndex = 55
+      themePanel.ClipsDescendants = true
+      themePanel.Parent = c
+      Y(themePanel, 12)
+      F(themePanel, f.accentDim, 1.4)
+
+      local themeTitle = Instance.new("TextLabel")
+      themeTitle.Size = UDim2.new(1, -16, 0, 22)
+      themeTitle.Position = UDim2.new(0, 8, 0, 6)
+      themeTitle.BackgroundTransparency = 1
+      themeTitle.Text = "INTERFACE COLORS"
+      themeTitle.TextColor3 = f.textDim
+      themeTitle.Font = Enum.Font.Cartoon
+      themeTitle.TextSize = 11
+      themeTitle.TextXAlignment = Enum.TextXAlignment.Left
+      themeTitle.ZIndex = 56
+      themeTitle.Parent = themePanel
+
+      local themeGrid = Instance.new("Frame")
+      themeGrid.Size = UDim2.new(1, -16, 1, -40)
+      themeGrid.Position = UDim2.new(0, 8, 0, 32)
+      themeGrid.BackgroundTransparency = 1
+      themeGrid.ZIndex = 56
+      themeGrid.Parent = themePanel
+      local gridLayout = Instance.new("UIGridLayout", themeGrid)
+      gridLayout.CellSize = UDim2.new(0, 54, 0, 48)
+      gridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+      gridLayout.FillDirectionMaxCells = 3
+      gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+      local themeList = {
+        { name = "RED", c = Color3.fromRGB(242, 48, 68) },
+        { name = "BLUE", c = Color3.fromRGB(64, 170, 255) },
+        { name = "PURPLE", c = Color3.fromRGB(168, 85, 247) },
+        { name = "GREEN", c = Color3.fromRGB(52, 211, 153) },
+        { name = "ORANGE", c = Color3.fromRGB(251, 146, 60) },
+        { name = "PINK", c = Color3.fromRGB(244, 114, 182) },
+        { name = "CYAN", c = Color3.fromRGB(34, 211, 238) },
+        { name = "CONTRAST", c = Color3.fromRGB(240, 240, 245) },
+      }
+      local themeChips = {}
+      local function refreshThemeChipSelection()
+        local cur = string.upper(tostring(_G.__AnonymousThemeSecondary or "RED"))
+        for _, info in ipairs(themeChips) do
+          local selected = info.name == cur
+          if info.stroke then
+            info.stroke.Color = selected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(40, 40, 48)
+            info.stroke.Thickness = selected and 2.2 or 1
+          end
+          if info.label then
+            info.label.TextColor3 = selected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 210)
+          end
+        end
+      end
+      for i, theme in ipairs(themeList) do
+        local chip = Instance.new("TextButton")
+        chip.Name = "Theme_" .. theme.name
+        chip.BackgroundColor3 = theme.c
+        chip.BackgroundTransparency = 0.1
+        chip.BorderSizePixel = 0
+        chip.Text = ""
+        chip.AutoButtonColor = false
+        chip.ZIndex = 57
+        chip.LayoutOrder = i
+        chip.Parent = themeGrid
+        Y(chip, 10)
+        local st = F(chip, Color3.fromRGB(40, 40, 48), 1)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 0, 14)
+        lbl.Position = UDim2.new(0, 0, 1, -16)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = theme.name
+        lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+        lbl.Font = Enum.Font.Cartoon
+        lbl.TextSize = 9
+        lbl.ZIndex = 58
+        lbl.Parent = chip
+        themeChips[#themeChips + 1] = { name = theme.name, stroke = st, label = lbl, btn = chip }
+        chip.MouseButton1Click:Connect(function()
+          if __AnonymousSetThemeColors then
+            __AnonymousSetThemeColors("BLACK", theme.name)
+          end
+          refreshThemeChipSelection()
+          -- restyle theme panel itself
+          themePanel.BackgroundColor3 = f.bgDark
+          local ps = themePanel:FindFirstChildOfClass("UIStroke")
+          if ps then ps.Color = f.accentDim end
+          themeTitle.TextColor3 = f.textDim
+          themeBtn.TextColor3 = f.accent
+        end)
+      end
+      refreshThemeChipSelection()
+
+      themeBtn.MouseButton1Click:Connect(function()
+        themePanel.Visible = not themePanel.Visible
+        if themePanel.Visible then
+          -- hide BG panel if open
+          local bp = c:FindFirstChild("BGPickerPanel")
+          if bp then bp.Visible = false end
+          refreshThemeChipSelection()
+          pcall(function()
+            if _G.__AnonymousPlayUiClick then _G.__AnonymousPlayUiClick() end
+          end)
+        end
+      end)
 
       local bgPanel = Instance.new("Frame")
       bgPanel.Name = "BGPickerPanel"
@@ -15248,7 +15855,7 @@
       bgTitle.BackgroundTransparency = 1
       bgTitle.Text = "BACKGROUNDS"
       bgTitle.TextColor3 = f.textDim
-      bgTitle.Font = Enum.Font.GothamBold
+      bgTitle.Font = Enum.Font.Cartoon
       bgTitle.TextSize = 11
       bgTitle.TextXAlignment = Enum.TextXAlignment.Left
       bgTitle.ZIndex = 51
@@ -15261,7 +15868,7 @@
       bgCounter.BackgroundTransparency = 1
       bgCounter.Text = "1 / 1"
       bgCounter.TextColor3 = f.textMuted
-      bgCounter.Font = Enum.Font.Gotham
+      bgCounter.Font = Enum.Font.Cartoon
       bgCounter.TextSize = 10
       bgCounter.TextXAlignment = Enum.TextXAlignment.Left
       bgCounter.ZIndex = 51
@@ -15309,7 +15916,7 @@
         b.BorderSizePixel = 0
         b.Text = text
         b.TextColor3 = f.text
-        b.Font = Enum.Font.GothamBold
+        b.Font = Enum.Font.Cartoon
         b.TextSize = 12
         b.AutoButtonColor = false
         b.ZIndex = 52
@@ -15332,7 +15939,7 @@
       randomBtn.BorderSizePixel = 0
       randomBtn.Text = "RANDOM"
       randomBtn.TextColor3 = f.text
-      randomBtn.Font = Enum.Font.GothamBold
+      randomBtn.Font = Enum.Font.Cartoon
       randomBtn.TextSize = 11
       randomBtn.AutoButtonColor = false
       randomBtn.ZIndex = 52
@@ -15471,7 +16078,7 @@
         label.BackgroundTransparency = 1
         label.Text = entry.label
         label.TextColor3 = f.textDim
-        label.Font = Enum.Font.GothamBold
+        label.Font = Enum.Font.Cartoon
         label.TextSize = 8
         label.TextTruncate = Enum.TextTruncate.AtEnd
         label.ZIndex = 53
@@ -15523,6 +16130,10 @@
 
       bgBtn.MouseButton1Click:Connect(function()
         bgPanel.Visible = not bgPanel.Visible
+        if bgPanel.Visible then
+          local tp = c:FindFirstChild("ThemeColorPanel")
+          if tp then tp.Visible = false end
+        end
       end)
 
       _G.__AnonymousTrackConn(C.InputBegan:Connect(function(input)
@@ -15555,7 +16166,7 @@
       a.BorderSizePixel = 0
       a.Text = "—"
       a.TextColor3 = f.textDim
-      a.Font = Enum.Font.GothamBold
+      a.Font = Enum.Font.Cartoon
       a.TextSize = 16
       a.ZIndex = 12
       a.Parent = o
@@ -15581,29 +16192,29 @@
       H.Parent = c
       Y(H, 12)
       H.Visible = false
-      local navWidth = p and 68 or 96
+      local navWidth = p and 72 or 92
       local W = Instance.new("Frame")
       W.Name = "CategorySidebar"
       W.Size = UDim2.new(0, navWidth, 1, -(R.headerH + 16))
-      W.Position = UDim2.new(1, -(navWidth + 10), 0, R.headerH + 8) -- RIGHT sidebar like 7UP
+      W.Position = UDim2.new(0, 8, 0, R.headerH + 8) -- LEFT sidebar
       W.BackgroundColor3 = f.bgDark
-      W.BackgroundTransparency = 0.12
+      W.BackgroundTransparency = 0.05
       W.BorderSizePixel = 0
       W.ZIndex = 12
       W.Parent = c
-      Y(W, 16) -- rounded sidebar
-      F(W, f.accentDim, 1.1)
+      Y(W, 14)
+      F(W, f.divider, 1.2)
       o = Instance.new("UIListLayout", W)
       o.SortOrder = Enum.SortOrder.LayoutOrder
       o.FillDirection = Enum.FillDirection.Vertical
       o.HorizontalAlignment = Enum.HorizontalAlignment.Center
       o.VerticalAlignment = Enum.VerticalAlignment.Top
-      o.Padding = UDim.new(0, p and 6 or 8)
+      o.Padding = UDim.new(0, p and 8 or 10)
       H = Instance.new("UIPadding", W)
-      H.PaddingLeft = UDim.new(0, 12)
-      H.PaddingRight = UDim.new(0, 12)
-      H.PaddingTop = UDim.new(0, 10)
-      H.PaddingBottom = UDim.new(0, 10)
+      H.PaddingLeft = UDim.new(0, 10)
+      H.PaddingRight = UDim.new(0, 10)
+      H.PaddingTop = UDim.new(0, 12)
+      H.PaddingBottom = UDim.new(0, 12)
       -- ========== PREMIUM UI SYSTEMS (search / toasts / favorites / compact / accent / profiles) ==========
       local UISys = {
         search = "",
@@ -15640,7 +16251,7 @@
         tl.Text = tostring(msg or "")
         tl.TextColor3 = isOn and f.accent or f.text
         tl.TextSize = p and 10 or 12
-        tl.Font = Enum.Font.GothamBold
+        tl.Font = Enum.Font.Cartoon
         tl.TextXAlignment = Enum.TextXAlignment.Left
         tl.ZIndex = 10000
         tl.Parent = toast
@@ -15668,8 +16279,8 @@
           end
         end
         if featureCountLabel and featureCountLabel.Parent then
-          featureCountLabel.Text = tostring(n) .. " ON"
-          featureCountLabel.TextColor3 = n > 0 and f.accent or f.textDim
+          featureCountLabel.Visible = false
+          featureCountLabel.Text = ""
         end
       end
       _G.__AnonymousRefreshFeatureCount = __AnonymousRefreshFeatureCount
@@ -15713,15 +16324,15 @@
       local searchBarH = p and 30 or 34
       local searchFrame = Instance.new("Frame")
       searchFrame.Name = "SearchBar"
-      searchFrame.Size = UDim2.new(1, -(navWidth + 22), 0, searchBarH)
-      searchFrame.Position = UDim2.new(0, 12, 0, R.headerH + 6)
-      searchFrame.BackgroundColor3 = f.bgDark
-      searchFrame.BackgroundTransparency = 0.15
+      searchFrame.Size = UDim2.new(1, -(navWidth + 28), 0, searchBarH)
+      searchFrame.Position = UDim2.new(0, navWidth + 18, 0, R.headerH + 6)
+      searchFrame.BackgroundColor3 = f.row
+      searchFrame.BackgroundTransparency = 0.1
       searchFrame.BorderSizePixel = 0
       searchFrame.ZIndex = 15
       searchFrame.Parent = c
-      Y(searchFrame, 14)
-      F(searchFrame, f.accentDim, 1)
+      Y(searchFrame, 12)
+      F(searchFrame, f.divider, 1)
       local searchBox = Instance.new("TextBox")
       searchBox.Name = "SearchInput"
       searchBox.Size = UDim2.new(1, -12, 1, 0)
@@ -15732,7 +16343,7 @@
       searchBox.Text = ""
       searchBox.TextColor3 = f.text
       searchBox.TextSize = p and 11 or 13
-      searchBox.Font = Enum.Font.GothamMedium
+      searchBox.Font = Enum.Font.Cartoon
       searchBox.TextXAlignment = Enum.TextXAlignment.Left
       searchBox.ClearTextOnFocus = false
       searchBox.ZIndex = 16
@@ -15748,8 +16359,8 @@
       local quickBar = Instance.new("Frame")
       quickBar.Name = "QuickActions"
       quickBar.Visible = false
-      quickBar.Size = UDim2.new(1, -(navWidth + 22), 0, 0)
-      quickBar.Position = UDim2.new(0, 12, 0, R.headerH + 8 + searchBarH + 4)
+      quickBar.Size = UDim2.new(1, -(navWidth + 28), 0, 0)
+      quickBar.Position = UDim2.new(0, navWidth + 18, 0, R.headerH + 8 + searchBarH + 4)
       quickBar.BackgroundTransparency = 1
       quickBar.ZIndex = 15
       quickBar.Parent = c
@@ -15768,7 +16379,7 @@
         b.Text = label
         b.TextColor3 = f.text
         b.TextSize = p and 8 or 9
-        b.Font = Enum.Font.GothamBold
+        b.Font = Enum.Font.Cartoon
         b.AutoButtonColor = true
         b.ZIndex = 16
         b.Parent = quickBar
@@ -15810,8 +16421,8 @@
       end)
 
       w.Name = "ContentFrame"
-      w.Size = UDim2.new(1, -(navWidth + 22), 1, -(R.headerH + 16 + searchBarH + 6 + quickBarH + 4))
-      w.Position = UDim2.new(0, 12, 0, R.headerH + 8 + searchBarH + 4 + quickBarH + 4)
+      w.Size = UDim2.new(1, -(navWidth + 28), 1, -(R.headerH + 16 + searchBarH + 6 + quickBarH + 4))
+      w.Position = UDim2.new(0, navWidth + 18, 0, R.headerH + 8 + searchBarH + 4 + quickBarH + 4)
       w.BackgroundTransparency = 1
       w.ClipsDescendants = true
       w.ZIndex = 4
@@ -15898,13 +16509,13 @@
       local function nN(QN, uN, pN)
         local _N = Instance.new("Frame")
         _N.Size = UDim2.new(1, 0, 0, R.sectionH)
-        _N.BackgroundColor3 = f.bgDark
-        _N.BackgroundTransparency = 0.35
+        _N.BackgroundColor3 = f.row
+        _N.BackgroundTransparency = 0.45
         _N.BorderSizePixel = 0
         _N.LayoutOrder = pN
         _N.Parent = QN
-        Y(_N, 14)
-        F(_N, f.accentDim, 1)
+        Y(_N, 10)
+        F(_N, f.divider, 0.9)
         -- Accent bar (pill)
         local accentBar = Instance.new("Frame")
         accentBar.Name = "SectionAccent"
@@ -15922,7 +16533,7 @@
         title.Text = string.upper(tostring(uN or ""))
         title.TextColor3 = Color3.fromRGB(220, 32, 46)
         title.TextSize = R.sectionSize or (p and 11 or 12)
-        title.Font = Enum.Font.GothamBlack
+        title.Font = Enum.Font.Cartoon
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.TextTransparency = 0.05
         title.Parent = _N
@@ -15937,7 +16548,7 @@
         UN.BorderSizePixel = 0
         UN.TextColor3 = f.text
         UN.TextSize = p and 8 or 9
-        UN.Font = Enum.Font.GothamBold
+        UN.Font = Enum.Font.Cartoon
         UN.Text = E[pN] and (zN(E[pN])) or "-"
         UN.ZIndex = 8
         UN.Parent = uN
@@ -15977,7 +16588,7 @@
         pN.Text = _N
         pN.TextColor3 = f.text
         pN.TextSize = R.textSize
-        pN.Font = Enum.Font.GothamBold
+        pN.Font = Enum.Font.Cartoon
         pN.TextXAlignment = Enum.TextXAlignment.Left
         pN.Parent = hN
         if aN then
@@ -15998,7 +16609,7 @@
         pN.Text = tostring(UN)
         pN.TextColor3 = f.text
         pN.TextSize = p and 9 or 11
-        pN.Font = Enum.Font.GothamBold
+        pN.Font = Enum.Font.Cartoon
         pN.ClearTextOnFocus = false
         pN.Parent = aN
         pN.FocusLost:Connect(function()
@@ -16038,7 +16649,7 @@
         _N.Text = UN.name
         _N.TextColor3 = f.text
         _N.TextSize = 11
-        _N.Font = Enum.Font.GothamBold
+        _N.Font = Enum.Font.Cartoon
         _N.TextXAlignment = Enum.TextXAlignment.Left
         _N.Parent = HN
         local _N = "SelectCustomMode_" .. UN.name
@@ -16051,7 +16662,7 @@
           ON.Text = aN
           ON.TextColor3 = f.textMuted
           ON.TextSize = 8
-          ON.Font = Enum.Font.GothamBold
+          ON.Font = Enum.Font.Cartoon
           ON.TextXAlignment = Enum.TextXAlignment.Left
           ON.Parent = HN
           local aN = r(Instance.new("TextBox"))
@@ -16062,7 +16673,7 @@
           aN.Text = tostring(hN)
           aN.TextColor3 = f.text
           aN.TextSize = 10
-          aN.Font = Enum.Font.GothamBold
+          aN.Font = Enum.Font.Cartoon
           aN.ClearTextOnFocus = false
           aN.Parent = HN
           Y(aN, 5)
@@ -16108,7 +16719,7 @@
         QN.Text = "X"
         QN.TextColor3 = Color3.fromRGB(255, 180, 180)
         QN.TextSize = 10
-        QN.Font = Enum.Font.GothamBold
+        QN.Font = Enum.Font.Cartoon
         QN.Parent = HN
         Y(QN, 5)
         local function aN()
@@ -16160,7 +16771,7 @@
           fN.Text = UN
           fN.TextColor3 = f.textMuted
           fN.TextSize = 8
-          fN.Font = Enum.Font.GothamBold
+          fN.Font = Enum.Font.Cartoon
           fN.TextXAlignment = Enum.TextXAlignment.Left
           fN.Parent = HN
         end
@@ -16173,7 +16784,7 @@
           LN.Text = aN
           LN.TextColor3 = f.text
           LN.TextSize = 10
-          LN.Font = Enum.Font.GothamBold
+          LN.Font = Enum.Font.Cartoon
           LN.ClearTextOnFocus = false
           LN.Parent = HN
           Y(LN, 5)
@@ -16194,7 +16805,7 @@
         LN.Text = ""
         LN.TextColor3 = Color3.fromRGB(255, 150, 150)
         LN.TextSize = 8
-        LN.Font = Enum.Font.GothamBold
+        LN.Font = Enum.Font.Cartoon
         LN.TextXAlignment = Enum.TextXAlignment.Left
         LN.Parent = HN
         _N = r(Instance.new("TextButton"))
@@ -16205,7 +16816,7 @@
         _N.Text = "CREATE CUSTOM SPEED"
         _N.TextColor3 = f.text
         _N.TextSize = 10
-        _N.Font = Enum.Font.GothamBold
+        _N.Font = Enum.Font.Cartoon
         _N.Parent = HN
         Y(_N, 6)
         _N.MouseButton1Click:Connect(function()
@@ -16255,12 +16866,12 @@
         iN:SetAttribute("AnonFeatureLabel", tostring(featureLabel or ""))
         iN.Size = UDim2.new(1, 0, 0, fN and R.toggleBindH or R.toggleH)
         iN.BackgroundColor3 = f.row
-        iN.BackgroundTransparency = 0.22
+        iN.BackgroundTransparency = 0.08
         iN.BorderSizePixel = 0
         iN.LayoutOrder = hN
         iN.Parent = UN
-        Y(iN, 16) -- premium soft card radius
-        F(iN, f.divider, 1.15)
+        Y(iN, 16)
+        F(iN, f.divider, 0.9)
         table.insert(UISys.toggleRows, { frame = iN, key = featureKey, label = featureLabel })
         local hN = Instance.new("UIScale", iN)
         hN.Scale = 1
@@ -16273,7 +16884,7 @@
         starBtn.Text = UISys.favorites[featureKey] and "★" or "☆"
         starBtn.TextColor3 = UISys.favorites[featureKey] and Color3.fromRGB(255, 200, 60) or f.textMuted
         starBtn.TextSize = p and 14 or 16
-        starBtn.Font = Enum.Font.GothamBold
+        starBtn.Font = Enum.Font.Cartoon
         starBtn.ZIndex = 12
         starBtn.Parent = iN
         starBtn.MouseButton1Click:Connect(function()
@@ -16296,7 +16907,7 @@
         SN.Text = featureLabel
         SN.TextColor3 = f.text
         SN.TextSize = R.textSize
-        SN.Font = Enum.Font.GothamBold
+        SN.Font = Enum.Font.Cartoon
         SN.TextXAlignment = Enum.TextXAlignment.Left
         SN.TextTransparency = 0.02
         SN.Parent = iN
@@ -16311,15 +16922,15 @@
         yN.Text = ""
         yN.TextColor3 = f.bgDark
         yN.TextSize = p and 12 or 14
-        yN.Font = Enum.Font.GothamBold
+        yN.Font = Enum.Font.Cartoon
         yN.AutoButtonColor = false
         yN.ZIndex = 9
         yN.Parent = iN
         Y(yN, 999) -- ultra pill
-        F(yN, Color3.fromRGB(70, 70, 78), 1.25)
+        F(yN, Color3.fromRGB(58, 58, 68), 1.1)
         local ZN = Instance.new("Frame")
         ZN.Name = "ToggleKnob"
-        local YN = p and 18 or 22
+        local YN = p and 19 or 24
         ZN.Size = UDim2.fromOffset(YN, YN)
         ZN.AnchorPoint = Vector2.new(0, 0.5)
         ZN.Position = UDim2.new(0, 3, 0.5, 0)
@@ -16346,7 +16957,7 @@
           fN.Text = UN and (zN(UN)) or "-"
           fN.TextColor3 = f.text
           fN.TextSize = p and 8 or 9
-          fN.Font = Enum.Font.GothamBold
+          fN.Font = Enum.Font.Cartoon
           fN.Parent = iN
           Y(fN, 5)
           fN.MouseButton1Click:Connect(function()
@@ -16407,6 +17018,11 @@
           LN(yN)
           local finalOn = HN and y[HN] == true or yN
           aN(finalOn)
+          pcall(function()
+            if _G.__AnonymousPlayUiToggle then
+              _G.__AnonymousPlayUiToggle(finalOn)
+            end
+          end)
           pcall(__AnonymousShowToast, (featureLabel or featureKey or "Feature") .. (finalOn and " · ON" or " · OFF"), finalOn)
           pcall(__AnonymousRefreshFeatureCount)
         end)
@@ -16432,7 +17048,7 @@
         hN.Text = HN
         hN.TextColor3 = f.text
         hN.TextSize = p and 8 or 9
-        hN.Font = Enum.Font.GothamBold
+        hN.Font = Enum.Font.Cartoon
         hN.ZIndex = 8
         hN.Parent = yN
         Y(hN, 5)
@@ -16469,7 +17085,7 @@
         fN.Text = aN
         fN.TextColor3 = f.text
         fN.TextSize = R.textSize
-        fN.Font = Enum.Font.GothamBold
+        fN.Font = Enum.Font.Cartoon
         fN.TextXAlignment = Enum.TextXAlignment.Left
         fN.Parent = hN
         if ON ~= false then
@@ -16496,7 +17112,7 @@
       modeBadge.Text = "MODE  ·  " .. tostring(Z or "Normal"):upper()
       modeBadge.TextColor3 = f.accent
       modeBadge.TextSize = p and 11 or 12
-      modeBadge.Font = Enum.Font.GothamBlack
+      modeBadge.Font = Enum.Font.Cartoon
       modeBadge.Parent = HN
       Y(modeBadge, 10)
       F(modeBadge, f.accent, 1.2)
@@ -16576,7 +17192,7 @@
           b.Text = name
           b.TextColor3 = f.text
           b.TextSize = p and 9 or 10
-          b.Font = Enum.Font.GothamBold
+          b.Font = Enum.Font.Cartoon
           b.Parent = presetRow
           Y(b, 10)
           F(b, Color3.fromRGB(55, 55, 62), 1)
@@ -16622,7 +17238,7 @@
         modeLabel.Text = "MODE"
         modeLabel.TextColor3 = f.textMuted
         modeLabel.TextSize = p and 9 or 10
-        modeLabel.Font = Enum.Font.GothamBold
+        modeLabel.Font = Enum.Font.Cartoon
         modeLabel.TextXAlignment = Enum.TextXAlignment.Left
         modeLabel.Parent = modeRow
 
@@ -16645,7 +17261,7 @@
           b.Text = name
           b.TextColor3 = f.text
           b.TextSize = p and 8 or 9
-          b.Font = Enum.Font.GothamBold
+          b.Font = Enum.Font.Cartoon
           b.Parent = modeRow
           Y(b, 10)
           F(b, Color3.fromRGB(55, 55, 62), 1)
@@ -16674,7 +17290,7 @@
         live.Text = "SPEED  0  ·  MODE Velocity  ·  GND  ·  SHIFT sprint"
         live.TextColor3 = f.textDim
         live.TextSize = p and 9 or 10
-        live.Font = Enum.Font.GothamBold
+        live.Font = Enum.Font.Cartoon
         live.Parent = HN
         Y(live, 10)
         F(live, f.divider, 1)
@@ -16734,7 +17350,7 @@
       H.Text = "+  ADD CUSTOM SPEED"
       H.TextColor3 = f.text
       H.TextSize = 10
-      H.Font = Enum.Font.GothamBold
+      H.Font = Enum.Font.Cartoon
       H.Parent = HN
       Y(H, 10)
       F(H, f.divider, 1)
@@ -16844,7 +17460,7 @@
       L.Text = "GUI"
       L.TextColor3 = f.text
       L.TextSize = 8
-      L.Font = Enum.Font.GothamBold
+      L.Font = Enum.Font.Cartoon
       L.TextXAlignment = Enum.TextXAlignment.Left
       L.ZIndex = 13
       L.Parent = H
@@ -16884,7 +17500,7 @@
         pN.Text = B
         pN.TextColor3 = f.textMuted
         pN.TextSize = 9
-        pN.Font = Enum.Font.GothamBold
+        pN.Font = Enum.Font.Cartoon
         pN.TextXAlignment = Enum.TextXAlignment.Left
         pN.ZIndex = 9
         pN.Parent = q
@@ -16901,7 +17517,7 @@
       B.Text = tostring(_G.__tpBatV2Distance or 8)
       B.TextColor3 = f.text
       B.TextSize = 10
-      B.Font = Enum.Font.GothamBold
+      B.Font = Enum.Font.Cartoon
       B.TextXAlignment = Enum.TextXAlignment.Center
       B.ZIndex = 10
       B.Parent = q
@@ -16914,7 +17530,7 @@
       QN.BorderSizePixel = 0
       QN.TextColor3 = f.text
       QN.TextSize = 10
-      QN.Font = Enum.Font.GothamBold
+      QN.Font = Enum.Font.Cartoon
       QN.ZIndex = 10
       QN.Parent = q
       QN.Visible = true
@@ -17122,7 +17738,7 @@
         songLabel.Text = "Track: " .. (songs[_G.__AnonymousMusicIdx] and songs[_G.__AnonymousMusicIdx].name or "?")
         songLabel.TextColor3 = f.textDim
         songLabel.TextSize = p and 10 or 11
-        songLabel.Font = Enum.Font.GothamBold
+        songLabel.Font = Enum.Font.Cartoon
         songLabel.TextXAlignment = Enum.TextXAlignment.Left
         songLabel.Parent = z
 
@@ -17144,7 +17760,7 @@
           b.Text = label
           b.TextColor3 = f.text
           b.TextSize = p and 9 or 10
-          b.Font = Enum.Font.GothamBold
+          b.Font = Enum.Font.Cartoon
           b.LayoutOrder = order
           b.Parent = ctrl
           Y(b, 10)
@@ -17179,15 +17795,17 @@
         end)
 
         -- click SFX (7UP can open sound)
-        local clickSfxId = "rbxassetid://6811412838"
+        local clickSfxId = "rbxassetid://6895079853"
         _G.__AnonymousUIClickSound = _G.__AnonymousUIClickSound ~= false
         _N(z, "UI Click Sound", "UIClickSound", _G.__AnonymousUIClickSound ~= false, 4.985, false, function(on)
           _G.__AnonymousUIClickSound = on == true
-          if on then
+          if on and _G.__AnonymousPlayUiClick then
+            pcall(_G.__AnonymousPlayUiClick)
+          elseif on then
             pcall(function()
               local s = Instance.new("Sound")
               s.SoundId = clickSfxId
-              s.Volume = 0.5
+              s.Volume = 0.45
               s.Parent = SoundService
               s:Play()
               task.delay(1, function() s:Destroy() end)
@@ -17386,7 +18004,7 @@
             title.Text = (mode == S and "✓  " or "") .. label
             title.TextColor3 = f.text
             title.TextSize = p and 9 or 10
-            title.Font = Enum.Font.GothamBold
+            title.Font = Enum.Font.Cartoon
             title.TextTruncate = Enum.TextTruncate.AtEnd
             title.ZIndex = 103
             title.Active = false
@@ -17421,6 +18039,214 @@
       }
       uN.add("Headless", "Headless Visual", 12)
       uN.add("Korblox", "Korblox Visual", 13)
+      nN(z, "FONT / POLICE", 13.5)
+      do
+        -- All usable Roblox fonts for the hub UI
+        local FONT_LIST = {
+          "Cartoon", "FredokaOne", "LuckiestGuy", "Bangers", "Creepster",
+          "Arcade", "Fantasy", "Antique", "SciFi", "Highway", "Code",
+          "Gotham", "GothamMedium", "GothamBold", "GothamBlack",
+          "SourceSans", "SourceSansBold", "SourceSansSemibold", "SourceSansLight", "SourceSansItalic",
+          "Arial", "ArialBold", "Legacy",
+          "Bodoni", "Garamond",
+          "AmaticSC", "DenkOne", "Fondamento", "GrenzeGotisch",
+          "IndieFlower", "JosefinSans", "Jura", "Kalam",
+          "Merriweather", "Michroma", "Nunito", "Oswald",
+          "PermanentMarker", "Roboto", "RobotoCondensed", "RobotoMono",
+          "Sarpanch", "SpecialElite", "TitilliumWeb", "Ubuntu",
+        }
+        local function resolveFont(name)
+          local ok, font = pcall(function() return Enum.Font[name] end)
+          if ok and font then return font end
+          return Enum.Font.Cartoon
+        end
+        local currentName = tostring(_G.__AnonymousUiFont or "Cartoon")
+        if not Enum.Font[currentName] then currentName = "Cartoon" end
+        _G.__AnonymousUiFont = currentName
+
+        local function applyUiFont(name)
+          name = tostring(name or "Cartoon")
+          if not Enum.Font[name] then name = "Cartoon" end
+          _G.__AnonymousUiFont = name
+          local font = resolveFont(name)
+          pcall(function()
+            for _, root in ipairs(_G.__AnonymousThemeRoots or {}) do
+              if root and root.Parent then
+                for _, obj in ipairs(root:GetDescendants()) do
+                  if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+                    pcall(function() obj.Font = font end)
+                  end
+                end
+                if root:IsA("TextLabel") or root:IsA("TextButton") or root:IsA("TextBox") then
+                  pcall(function() root.Font = font end)
+                end
+              end
+            end
+            -- also cover main ScreenGui if registered differently
+            if h and h.Parent then
+              for _, obj in ipairs(h:GetDescendants()) do
+                if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+                  pcall(function() obj.Font = font end)
+                end
+              end
+            end
+          end)
+          if oN then pcall(oN) end
+          pcall(__AnonymousShowToast, "Font: " .. name, true)
+        end
+        _G.__AnonymousApplyUiFont = applyUiFont
+
+        -- Preview row: <  NAME  >
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, p and 42 or 48)
+        row.BackgroundColor3 = f.row
+        row.BackgroundTransparency = 0.35
+        row.BorderSizePixel = 0
+        row.LayoutOrder = 13.6
+        row.Parent = z
+        Y(row, 10)
+        F(row, f.divider, 1)
+
+        local prevBtn = r(Instance.new("TextButton"))
+        prevBtn.Size = UDim2.new(0, 42, 1, -8)
+        prevBtn.Position = UDim2.new(0, 4, 0, 4)
+        prevBtn.BackgroundColor3 = f.accentDim
+        prevBtn.BackgroundTransparency = 0.15
+        prevBtn.BorderSizePixel = 0
+        prevBtn.Text = "<"
+        prevBtn.TextColor3 = f.text
+        prevBtn.TextSize = 18
+        prevBtn.Font = Enum.Font.Cartoon
+        prevBtn.Parent = row
+        Y(prevBtn, 7)
+
+        local nameLbl = r(Instance.new("TextLabel"))
+        nameLbl.Size = UDim2.new(1, -100, 1, 0)
+        nameLbl.Position = UDim2.new(0, 50, 0, 0)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = currentName
+        nameLbl.TextColor3 = f.text
+        nameLbl.TextSize = p and 12 or 14
+        nameLbl.Font = resolveFont(currentName)
+        nameLbl.TextWrapped = true
+        nameLbl.Parent = row
+
+        local nextBtn = r(Instance.new("TextButton"))
+        nextBtn.Size = UDim2.new(0, 42, 1, -8)
+        nextBtn.Position = UDim2.new(1, -46, 0, 4)
+        nextBtn.BackgroundColor3 = f.accentDim
+        nextBtn.BackgroundTransparency = 0.15
+        nextBtn.BorderSizePixel = 0
+        nextBtn.Text = ">"
+        nextBtn.TextColor3 = f.text
+        nextBtn.TextSize = 18
+        nextBtn.Font = Enum.Font.Cartoon
+        nextBtn.Parent = row
+        Y(nextBtn, 7)
+
+        local function idxOf(name)
+          for i, n in ipairs(FONT_LIST) do
+            if n == name then return i end
+          end
+          return 1
+        end
+
+        local function setByDelta(delta)
+          local i = idxOf(_G.__AnonymousUiFont or "Cartoon") + delta
+          if i < 1 then i = #FONT_LIST end
+          if i > #FONT_LIST then i = 1 end
+          local name = FONT_LIST[i]
+          nameLbl.Text = name
+          nameLbl.Font = resolveFont(name)
+          applyUiFont(name)
+        end
+
+        prevBtn.MouseButton1Click:Connect(function() setByDelta(-1) end)
+        nextBtn.MouseButton1Click:Connect(function() setByDelta(1) end)
+
+        -- Gallery button: open full list
+        local galleryBtn = r(Instance.new("TextButton"))
+        galleryBtn.Size = UDim2.new(1, 0, 0, p and 32 or 36)
+        galleryBtn.BackgroundColor3 = f.accentDim
+        galleryBtn.BackgroundTransparency = 0.15
+        galleryBtn.BorderSizePixel = 0
+        galleryBtn.LayoutOrder = 13.7
+        galleryBtn.Text = "LISTE DES POLICES  ▾"
+        galleryBtn.TextColor3 = f.text
+        galleryBtn.TextSize = p and 10 or 11
+        galleryBtn.Font = Enum.Font.Cartoon
+        galleryBtn.Parent = z
+        Y(galleryBtn, 10)
+        F(galleryBtn, f.divider, 1)
+
+        local galleryOpen = false
+        local galleryFrame = nil
+        galleryBtn.MouseButton1Click:Connect(function()
+          if galleryOpen and galleryFrame then
+            galleryFrame:Destroy()
+            galleryFrame = nil
+            galleryOpen = false
+            galleryBtn.Text = "LISTE DES POLICES  ▾"
+            return
+          end
+          galleryOpen = true
+          galleryBtn.Text = "LISTE DES POLICES  ▴"
+          galleryFrame = Instance.new("ScrollingFrame")
+          galleryFrame.Name = "FontGallery"
+          galleryFrame.Size = UDim2.new(1, 0, 0, p and 160 or 200)
+          galleryFrame.BackgroundColor3 = f.bgDark
+          galleryFrame.BackgroundTransparency = 0.05
+          galleryFrame.BorderSizePixel = 0
+          galleryFrame.ScrollBarThickness = 4
+          galleryFrame.CanvasSize = UDim2.new(0, 0, 0, #FONT_LIST * 34 + 8)
+          galleryFrame.LayoutOrder = 13.75
+          galleryFrame.ZIndex = 30
+          galleryFrame.Parent = z
+          Y(galleryFrame, 10)
+          F(galleryFrame, f.divider, 1)
+          local list = Instance.new("UIListLayout", galleryFrame)
+          list.Padding = UDim.new(0, 3)
+          list.SortOrder = Enum.SortOrder.LayoutOrder
+          local pad = Instance.new("UIPadding", galleryFrame)
+          pad.PaddingTop = UDim.new(0, 4)
+          pad.PaddingLeft = UDim.new(0, 4)
+          pad.PaddingRight = UDim.new(0, 4)
+          for i, fname in ipairs(FONT_LIST) do
+            local b = r(Instance.new("TextButton"))
+            b.Size = UDim2.new(1, -8, 0, 30)
+            b.BackgroundColor3 = (fname == _G.__AnonymousUiFont) and f.accent or f.row
+            b.BackgroundTransparency = (fname == _G.__AnonymousUiFont) and 0.05 or 0.25
+            b.BorderSizePixel = 0
+            b.Text = fname
+            b.TextColor3 = f.text
+            b.TextSize = 13
+            b.Font = resolveFont(fname)
+            b.LayoutOrder = i
+            b.ZIndex = 31
+            b.Parent = galleryFrame
+            Y(b, 6)
+            b.MouseButton1Click:Connect(function()
+              nameLbl.Text = fname
+              nameLbl.Font = resolveFont(fname)
+              applyUiFont(fname)
+              -- refresh highlight
+              for _, child in ipairs(galleryFrame:GetChildren()) do
+                if child:IsA("TextButton") then
+                  local on = child.Text == fname
+                  child.BackgroundColor3 = on and f.accent or f.row
+                  child.BackgroundTransparency = on and 0.05 or 0.25
+                end
+              end
+            end)
+          end
+        end)
+
+        -- Apply saved font shortly after UI builds
+        task.defer(function()
+          task.wait(0.15)
+          applyUiFont(_G.__AnonymousUiFont or "Cartoon")
+        end)
+      end
       nN(z, "GUI", 14)
       _N(z, "Quick Buttons", "Show Buttons", y["Show Buttons"], 16, false, function(_)
         t("Show Buttons", _)
@@ -17435,7 +18261,7 @@
         U.BackgroundColor3 = f.accentDim
         U.BorderSizePixel = 0
         U.TextColor3 = f.text
-        U.Font = Enum.Font.GothamBold
+        U.Font = Enum.Font.Cartoon
         U.TextSize = 12
         U.Text = tostring(_G.__AnonymousButtonsSize or 1)
         U.PlaceholderText = "0.5 - 2"
@@ -17541,7 +18367,7 @@
       o.Text = "<"
       o.TextColor3 = f.text
       o.TextSize = 18
-      o.Font = Enum.Font.GothamBlack
+      o.Font = Enum.Font.Cartoon
       o.Parent = uN
       Y(o, 7)
       local _ = r(Instance.new("TextLabel"))
@@ -17551,7 +18377,7 @@
       _.TextColor3 = f.text
       _.TextSize = 10
       _.TextWrapped = true
-      _.Font = Enum.Font.GothamBold
+      _.Font = Enum.Font.Cartoon
       _.Parent = uN
       local U = r(Instance.new("TextButton"))
       U.Size = UDim2.new(0, 42, 1, -8)
@@ -17562,7 +18388,7 @@
       U.Text = ">"
       U.TextColor3 = f.text
       U.TextSize = 18
-      U.Font = Enum.Font.GothamBlack
+      U.Font = Enum.Font.Cartoon
       U.Parent = uN
       Y(U, 7)
       local function H()
@@ -17750,7 +18576,7 @@
         "Usa < y > para aplicar y guardar automaticamente. El toggle permite activar o desactivar."
       UN.TextColor3 = f.textDim
       UN.TextSize = 10
-      UN.Font = Enum.Font.Gotham
+      UN.Font = Enum.Font.Cartoon
       UN.TextWrapped = true
       UN.TextXAlignment = Enum.TextXAlignment.Left
       UN.Parent = yN
@@ -17777,7 +18603,7 @@
         O.Text = H
         O.TextColor3 = f.text
         O.TextSize = R.textSize
-        O.Font = Enum.Font.GothamBold
+        O.Font = Enum.Font.Cartoon
         O.TextXAlignment = Enum.TextXAlignment.Left
         O.TextTruncate = Enum.TextTruncate.AtEnd
         O.Parent = L
@@ -17790,7 +18616,7 @@
         _.BorderSizePixel = 0
         _.TextColor3 = f.bgDark
         _.TextSize = p and 9 or 10
-        _.Font = Enum.Font.GothamBold
+        _.Font = Enum.Font.Cartoon
         _.AutoButtonColor = false
         _.Parent = L
         Y(_, 7)
@@ -17841,23 +18667,23 @@
       for U, H in ipairs(_) do
         local _ = r(Instance.new("TextButton"))
         _.Name = H .. "Button"
-        -- Wide rounded-rectangle category buttons keep the labels readable.
-        _.Size = UDim2.new(1, -6, 0, p and 38 or 46)
-        _.BackgroundColor3 = H == z and f.accentDim or f.row
-        _.BackgroundTransparency = H == z and 0.02 or 0.28
+        -- Left sidebar category buttons
+        _.Size = UDim2.new(1, -4, 0, p and 38 or 44)
+        _.BackgroundColor3 = H == z and f.accent or f.row
+        _.BackgroundTransparency = H == z and 0.15 or 0.2
         _.BorderSizePixel = 0
         _.Text = Q[H] or (string.upper(H))
-        _.TextColor3 = H == z and f.text or f.textMuted
-        _.TextSize = p and 10 or 12
-        _.Font = Enum.Font.GothamBlack
+        _.TextColor3 = H == z and Color3.fromRGB(255, 255, 255) or f.textMuted
+        _.TextSize = p and 10 or 11
+        _.Font = Enum.Font.Cartoon
         _.LayoutOrder = U
         _.Parent = W
-        Y(_, 12)
-        F(_, H == z and f.accent or f.divider, H == z and 1.2 or 0.9)
+        Y(_, 10)
+        F(_, H == z and f.accent or f.divider, H == z and 1.3 or 0.85)
         n = Instance.new("Frame")
         n.Name = "Indicator"
-        n.Size = UDim2.new(0, 3, 1, -16)
-        n.Position = UDim2.new(0, 3, 0, 8)
+        n.Size = UDim2.new(0, 3, 1, -12)
+        n.Position = UDim2.new(0, 2, 0, 6)
         n.BackgroundColor3 = f.accent
         n.BackgroundTransparency = H == z and 0 or 1
         n.BorderSizePixel = 0
@@ -17883,9 +18709,9 @@
             if n:IsA("TextButton") then
               R = n.Name == H .. "Button"
               d(n, {
-                TextColor3 = R and f.text or f.textMuted,
-                BackgroundColor3 = R and f.accentDim or f.row,
-                BackgroundTransparency = R and 0.08 or 0.3,
+                TextColor3 = R and Color3.fromRGB(255, 255, 255) or f.textMuted,
+                BackgroundColor3 = R and f.accent or f.row,
+                BackgroundTransparency = R and 0.15 or 0.2,
               }, 0.18)
               local Q = n:FindFirstChild("Indicator")
               if Q then
@@ -17900,12 +18726,12 @@
         end)
         _.MouseEnter:Connect(function()
           if z ~= H then
-            d(_, { TextColor3 = f.text, BackgroundColor3 = f.accentDim, BackgroundTransparency = 0.14 })
+            d(_, { TextColor3 = f.text, BackgroundColor3 = f.row, BackgroundTransparency = 0.05 })
           end
         end)
         _.MouseLeave:Connect(function()
           if z ~= H then
-            d(_, { TextColor3 = f.textMuted, BackgroundColor3 = f.row, BackgroundTransparency = 0.3 })
+            d(_, { TextColor3 = f.textMuted, BackgroundColor3 = f.row, BackgroundTransparency = 0.2 })
           end
         end)
       end
@@ -17920,23 +18746,23 @@
       local z = Instance.new("TextButton")
       r(z)
       z.Name = "AnonymousRestoreButton"
-      z.Size = UDim2.new(0, 140, 0, 38)
+      z.Size = UDim2.new(0, 178, 0, 48)
       o = _G._AnonymousHub_UI_ModernMiniPos
       z.Position = o and (UDim2.fromOffset(o.x or 6, o.y or 54)) or (UDim2.new(0, 6, 0, 54))
       z.BackgroundColor3 = f.bgDark
-      z.BackgroundTransparency = 0.08
+      z.BackgroundTransparency = 0.04
       z.BorderSizePixel = 0
       z.Text = "ANONYMOUS"
       z.TextColor3 = Color3.fromRGB(255, 255, 255)
       z.TextStrokeTransparency = 0
       z.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-      z.TextSize = 18
+      z.TextSize = 25
       z.Font = Enum.Font.FredokaOne
       z.Visible = not g.Visible
       z.ZIndex = 900
       z.Parent = h
-      Y(z, 16)
-      F(z, f.accent, 1.6)
+      Y(z, 18)
+      F(z, f.accent, 1.85)
       k(z, z)
       a.MouseButton1Click:Connect(function()
         if _G.__setPanelVisible then
@@ -17969,11 +18795,13 @@
         end
         local n, o = math.max(1, Q.X - 12), math.max(1, Q.Y - 60)
         if p then
-          local side = math.min(n, o, math.clamp(math.floor(math.min(Q.X, Q.Y) * 0.58), 280, 360))
-          g.Size = UDim2.new(0, side, 0, side)
+          local w = math.clamp(math.floor(Q.X * 0.55), 280, math.min(340, n))
+          local hgt = math.clamp(math.floor(Q.Y * 0.55), 320, math.min(400, o))
+          g.Size = UDim2.new(0, w, 0, hgt)
         else
-          local side = math.min(480, n, o)
-          g.Size = UDim2.new(0, side, 0, side)
+          local w = math.min(420, n)
+          local hgt = math.min(480, o)
+          g.Size = UDim2.new(0, w, 0, hgt)
         end
         o = { g, z }
         for z, n in ipairs(o) do
@@ -18000,24 +18828,8 @@
       n()
     end)()
     _G.__AnonymousRegisterThemeRoot(h)
-    task.spawn(function()
-      local z = Instance.new("Frame")
-      z.Size = UDim2.new(1, 0, 1, 0)
-      z.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-      z.BackgroundTransparency = 1
-      z.BorderSizePixel = 0
-      z.ZIndex = 10000
-      z.Parent = h
-      b:Create(z, TweenInfo.new(0.08, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.45 })
-        :Play()
-      task.wait(0.12)
-      b:Create(z, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
-      task.wait(0.3)
-      pcall(function()
-        z:Destroy()
-      end)
-    end);
-    (function()
+    -- (no extra black flash — only the red ANONYMOUS ON TOP intro)
+    ;(function()
       local function z(b)
         if not b then
           return "..."
@@ -18286,28 +19098,30 @@
         end
       end))
     end)()
-    -- Premium rounded UI: ensure consistent modern corner radii across the whole hub
+    -- Crystal v9 rounded UI: consistent soft radii + full-pill controls
     pcall(function()
       for _, guiObject in ipairs(h:GetDescendants()) do
         if guiObject:IsA("UICorner") then
           local parent = guiObject.Parent
           if parent and parent:IsA("GuiObject") then
             local name = parent.Name or ""
-            -- Full pill for toggle track / knob / small chips
+            -- Full pill for toggle track / knob / chips / indicators
             if name == "ActiveMarker" or name == "ToggleKnob" or name == "Indicator" or name == "SectionAccent" then
               guiObject.CornerRadius = UDim.new(1, 0)
-            elseif parent:IsA("TextButton") and (parent.Size.X.Offset <= 56 or parent.Size.Y.Offset <= 30) then
-              guiObject.CornerRadius = UDim.new(0, 12)
-            elseif parent:IsA("Frame") and parent.Size.Y.Offset > 0 and parent.Size.Y.Offset <= 42 then
+            elseif parent:IsA("TextButton") and (parent.Size.X.Offset <= 64 or parent.Size.Y.Offset <= 34) then
               guiObject.CornerRadius = UDim.new(0, 14)
+            elseif parent:IsA("Frame") and parent.Size.Y.Offset > 0 and parent.Size.Y.Offset <= 48 then
+              guiObject.CornerRadius = UDim.new(0, 16)
             else
-              -- Main panels / cards → softer & more rounded
+              -- Main panels / cards → softer crystal radius
               local current = guiObject.CornerRadius
               if current.Scale == 0 then
-                if current.Offset < 10 then
-                  guiObject.CornerRadius = UDim.new(0, 16)
-                elseif current.Offset < 14 then
+                if current.Offset < 12 then
                   guiObject.CornerRadius = UDim.new(0, 18)
+                elseif current.Offset < 16 then
+                  guiObject.CornerRadius = UDim.new(0, 20)
+                elseif current.Offset < 20 then
+                  guiObject.CornerRadius = UDim.new(0, 22)
                 end
               end
             end
@@ -18423,23 +19237,24 @@
   end
 
 
-    -- Stylish typography pass
+    -- Stylish typography pass (respect user-selected UI font)
     pcall(function()
+      local fontName = tostring(_G.__AnonymousUiFont or "Cartoon")
+      local okF, chosen = pcall(function() return Enum.Font[fontName] end)
+      local uiFont = (okF and chosen) or Enum.Font.Cartoon
       for _, obj in ipairs(h:GetDescendants()) do
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
           local n = obj.Name or ""
-          if n == "HubTitle" or n == "AnonymousRestoreButton" then
-            obj.Font = Enum.Font.FredokaOne
+          pcall(function() obj.Font = uiFont end)
+          if n == "HubTitle" or n == "AnonymousRestoreButton" or (n and n:find("HubTitleOutline")) then
             obj.TextStrokeTransparency = 0
             obj.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-            obj.TextSize = math.max(obj.TextSize, p and 18 or 22)
-          elseif n:find("Section") or (obj.Text and obj.Text == string.upper(obj.Text) and #obj.Text > 3 and obj.TextSize <= 12) then
-            -- section-like
-            if obj.Font == Enum.Font.GothamBold then
-              obj.Font = Enum.Font.GothamBlack
+            if n == "HubTitle" then
+              obj.TextSize = math.max(obj.TextSize, p and 22 or 28)
+            elseif n == "AnonymousRestoreButton" then
+              obj.TextSize = math.max(obj.TextSize, 24)
             end
           end
-          -- slight stroke on pure white big text for depth
           if obj.TextSize >= 14 and obj.TextStrokeTransparency >= 0.95 then
             obj.TextStrokeTransparency = 0.75
             obj.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -18465,9 +19280,9 @@
         if not g.Visible or #pool > 12 then return end
         local d = Instance.new("Frame")
         d.BorderSizePixel = 0
-        d.BackgroundColor3 = Color3.fromRGB(255, math.random(40, 90), math.random(60, 120))
-        d.BackgroundTransparency = 0.35
-        local s = math.random(2, 4)
+        d.BackgroundColor3 = Color3.fromRGB(255, math.random(36, 88), math.random(55, 115))
+        d.BackgroundTransparency = 0.28
+        local s = math.random(2, 5)
         d.Size = UDim2.fromOffset(s, s)
         d.AnchorPoint = Vector2.new(0.5, 0.5)
         local w = g.AbsoluteSize.X
@@ -18542,10 +19357,10 @@
           if _G.AnonymousBypass.SetVisible then pcall(_G.AnonymousBypass.SetVisible, false) end
         end
       end)
-      -- Force Ultra optimizer + performance features for minimum lag
+      -- Soft performance defaults (no forced character wipe on load)
       _G.__optimizerMode = "Ultra"
-      local z = { "Optimizer", "Anti Lag", "FPS Boost" }
-      for _, name in ipairs(z) do
+      -- Anti Lag + Optimizer OK; FPS Boost deferred & character-safe
+      for _, name in ipairs({ "Optimizer", "Anti Lag" }) do
         y[name] = true
         if T[name] then
           task.defer(function()
@@ -18553,15 +19368,19 @@
           end)
         end
       end
-      -- Second pass: re-apply Ultra after systems register
-      task.delay(0.35, function()
+      y["FPS Boost"] = true
+      task.delay(1.2, function()
+        if y["FPS Boost"] and T["FPS Boost"] then
+          pcall(T["FPS Boost"], true)
+        end
+      end)
+      task.delay(0.5, function()
         _G.__optimizerMode = "Ultra"
         if T.Optimizer then
           pcall(T.Optimizer, false)
           pcall(T.Optimizer, true)
         end
         if T["Anti Lag"] then pcall(T["Anti Lag"], true) end
-        if T["FPS Boost"] then pcall(T["FPS Boost"], true) end
       end)
     end)
   end
