@@ -1,12 +1,12 @@
 --[[
-    71 VS — V41.1 MOBILE+ CARTOON
+    71 VS — V41.3 FLOAT+ CARTOON
     Fonts: LuckiestGuy + FredokaOne (cartoon)
     UI: Glow cards · Bounce animations · Red theme · Phone layout
     Config: Auto-save · Section moved to VISUAL
-    NEW: Mobile mode (touch aim button) · Speed & Fly removed
+    NEW: Mobile mode · Floating AIM/LOCK buttons (draggable) · Resize grip · Speed & Fly removed
 ]]
 
-print("[71 VS V41.1] Chargement...")
+print("[71 VS V41.3] Chargement...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -61,6 +61,9 @@ local DEFAULT_CONFIG = {
     ShootZoomFOV = 15, NormalFOV = 70, ShootZoomOnFire = true,
     NoRecoil = false, NoDelay = false,
     PotatoMode = false,
+    PanelW = 0, PanelH = 0,
+    AimBtnX = 0, AimBtnY = 0,
+    LockBtnX = 0, LockBtnY = 0,
 }
 
 local CONFIG_FILE = "71VS_Config.json"
@@ -268,7 +271,7 @@ end
 
 local function AimbotStep()
     if not Config.Aimbot then return end
-    if IsMobile then return end -- mobile uses CamLockStep (mousemoverel unavailable)
+    if IsMobile then return end
     if not (State.HoldLMB or State.HoldRMB) or Config.CamLock then return end
     local head = GetLockHead(); if not head or not head.Parent then return end
     local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
@@ -697,10 +700,19 @@ end
 -- ============================================================
 local BG_IMAGE = "rbxassetid://116890020704841"
 
--- 📱 Adaptive panel size for phones
 local vpSize = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(360, 640)
 local PHONE_W = math.min(360, math.max(280, math.floor(vpSize.X - 20)))
 local PHONE_H = math.min(640, math.max(400, math.floor(vpSize.Y - 20)))
+
+if Config.PanelW and Config.PanelW >= 300 and Config.PanelW <= vpSize.X - 20 then
+    PHONE_W = Config.PanelW
+end
+if Config.PanelH and Config.PanelH >= 400 and Config.PanelH <= vpSize.Y - 20 then
+    PHONE_H = Config.PanelH
+end
+
+local MIN_W = math.min(350, vpSize.X - 20)
+local MIN_H = math.min(420, vpSize.Y - 20)
 local NAV_H = 70
 local HEADER_H = 70
 
@@ -727,7 +739,6 @@ mainStroke.Color = Theme.Accent
 mainStroke.Thickness = 2
 mainStroke.Transparency = 0.35
 
--- Outer glow
 local outerGlow = Instance.new("Frame")
 outerGlow.Size = UDim2.new(1, 12, 1, 12)
 outerGlow.Position = UDim2.new(0, -6, 0, -6)
@@ -811,6 +822,7 @@ Header.BackgroundColor3 = Color3.fromRGB(16, 8, 10)
 Header.BackgroundTransparency = 0.15
 Header.BorderSizePixel = 0
 Header.Parent = Main
+Header.Active = true
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 26)
 
 local headerMask = Instance.new("Frame")
@@ -898,7 +910,7 @@ local sideSub = Instance.new("TextLabel")
 sideSub.Size = UDim2.new(0, 150, 0, 14)
 sideSub.Position = UDim2.new(0, 68, 0, 38)
 sideSub.BackgroundTransparency = 1
-sideSub.Text = IsMobile and "V41.1 · MOBILE+" or "V41.1 · CARTOON+"
+sideSub.Text = IsMobile and "V41.3 · FLOAT+" or "V41.3 · CARTOON+"
 sideSub.TextColor3 = Theme.AccentSoft
 SetFont(sideSub, "Title")
 sideSub.TextSize = 10
@@ -1035,7 +1047,7 @@ local PAGE_SUBS = {
 
 local function MakeNavTab(name, icon)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 100, 0, NAV_H - 12)
+    btn.Size = UDim2.new(1/3, -6, 0, NAV_H - 12)
     btn.BackgroundColor3 = name == Current and Theme.Accent or Color3.fromRGB(0, 0, 0)
     btn.BackgroundTransparency = name == Current and 0 or 1
     btn.BorderSizePixel = 0
@@ -1079,15 +1091,6 @@ local function MakeNavTab(name, icon)
         TweenService:Create(glow, TweenInfo.new(0.25), { Transparency = a and 0.5 or 1 }):Play()
         iconLbl.TextColor3 = a and Color3.new(1,1,1) or Theme.AccentSoft
         lbl.TextColor3 = a and Color3.new(1,1,1) or Theme.TextDim
-        if a then
-            TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Back), {
-                Size = UDim2.new(0, 104, 0, NAV_H - 10)
-            }):Play()
-        else
-            TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Back), {
-                Size = UDim2.new(0, 100, 0, NAV_H - 12)
-            }):Play()
-        end
     end
 
     btn.MouseButton1Click:Connect(function()
@@ -1369,20 +1372,12 @@ local function CreateButton(parent, text, color, callback)
     end)
 end
 
--- Forward declare for mobile button
-local MobileAimBtn = nil
-local function UpdateMobileAimBtn()
-    if MobileAimBtn then
-        MobileAimBtn.Visible = IsMobile and (Config.Aimbot or Config.CamLock)
-    end
-end
-
 -- ============================================================
 -- COMBAT PAGE
 -- ============================================================
 Section(CombatPage, "AIM ASSIST", "🎯")
-CreateToggle(CombatPage, "Cam Lock (100% tête)", Config.CamLock, function(s) Config.CamLock = s; UpdateMobileAimBtn() end)
-CreateToggle(CombatPage, "Aimbot", Config.Aimbot, function(s) Config.Aimbot = s; UpdateMobileAimBtn() end)
+CreateToggle(CombatPage, "Cam Lock (100% tête)", Config.CamLock, function(s) Config.CamLock = s end)
+CreateToggle(CombatPage, "Aimbot", Config.Aimbot, function(s) Config.Aimbot = s end)
 CreateSlider(CombatPage, "FOV", 40, 400, Config.FOV, function(v) Config.FOV = v end)
 CreateSlider(CombatPage, "Smooth", 0, 50, math.floor((Config.Smooth or 0.15) * 100), function(v) Config.Smooth = v / 100 end)
 CreateSlider(CombatPage, "Prediction %", 0, 200, math.floor((Config.Prediction or 1) * 100), function(v) Config.Prediction = v / 100 end)
@@ -1411,7 +1406,7 @@ if IsMobile then
     mlbl.Size = UDim2.new(1, -20, 1, 0)
     mlbl.Position = UDim2.new(0, 12, 0, 0)
     mlbl.BackgroundTransparency = 1
-    mlbl.Text = "📱 Bouton 🎯 flottant = viser"
+    mlbl.Text = "📱 Boutons 🎯/🔒 flottants — tap ou maintenir"
     mlbl.TextColor3 = Theme.TextMuted
     SetFont(mlbl, "Light"); mlbl.TextSize = 11
     mlbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -1419,7 +1414,7 @@ if IsMobile then
 end
 
 -- ============================================================
--- MOVE PAGE (Speed & Fly removed)
+-- MOVE PAGE
 -- ============================================================
 Section(MovePage, "PLAYER", "🏃")
 CreateToggle(MovePage, "Infinite Jump", Config.InfJump, function(s) Config.InfJump = s end)
@@ -1555,77 +1550,190 @@ CreateButton(VisualPage, "🧹 EXTREME CLEAN", Color3.fromRGB(100, 28, 32), func
 end)
 
 -- ============================================================
--- 📱 MOBILE AIM BUTTON
+-- 📱 FLOATING AIM / LOCK BUTTONS (mobile)
 -- ============================================================
+local AimBtn, LockBtn = nil, nil
+
 if IsMobile then
-    MobileAimBtn = Instance.new("TextButton")
-    MobileAimBtn.Name = "71VSMobileAim"
-    MobileAimBtn.Size = UDim2.new(0, 88, 0, 88)
-    MobileAimBtn.Position = UDim2.new(1, -108, 0.5, 60)
-    MobileAimBtn.BackgroundColor3 = Theme.Accent
-    MobileAimBtn.BackgroundTransparency = 0.2
-    MobileAimBtn.BorderSizePixel = 0
-    MobileAimBtn.Text = "🎯"
-    MobileAimBtn.Font = Enum.Font.LuckiestGuy
-    MobileAimBtn.TextSize = 34
-    MobileAimBtn.TextColor3 = Color3.new(1, 1, 1)
-    MobileAimBtn.AutoButtonColor = false
-    MobileAimBtn.Active = true
-    MobileAimBtn.Visible = false
-    MobileAimBtn.Parent = ScreenGui
+    local function CreateFloatingBtn(icon, label, defaultX, defaultY, onActivate, onDeactivate)
+        local btn = Instance.new("TextButton")
+        btn.Name = "71Float_" .. label
+        btn.Size = UDim2.new(0, 64, 0, 64)
+        btn.Position = UDim2.new(0, defaultX, 0, defaultY)
+        btn.AnchorPoint = Vector2.new(0, 0)
+        btn.BackgroundColor3 = Theme.Card
+        btn.BackgroundTransparency = 0.15
+        btn.BorderSizePixel = 0
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.Active = true
+        btn.ZIndex = 150
+        btn.Parent = ScreenGui
 
-    Instance.new("UICorner", MobileAimBtn).CornerRadius = UDim.new(1, 0)
-    local mGlow = Instance.new("UIStroke", MobileAimBtn)
-    mGlow.Color = Color3.new(1, 1, 1)
-    mGlow.Thickness = 2.5
-    mGlow.Transparency = 0.5
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
 
-    MobileAimBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
+        local glow = Instance.new("UIStroke", btn)
+        glow.Color = Theme.Border
+        glow.Thickness = 2
+        glow.Transparency = 0.3
+
+        local iconLbl = Instance.new("TextLabel")
+        iconLbl.Size = UDim2.new(1, 0, 0, 30)
+        iconLbl.Position = UDim2.new(0, 0, 0, 6)
+        iconLbl.BackgroundTransparency = 1
+        iconLbl.Text = icon
+        iconLbl.TextColor3 = Theme.Text
+        iconLbl.Font = Enum.Font.LuckiestGuy
+        iconLbl.TextSize = 22
+        iconLbl.ZIndex = 151
+        iconLbl.Parent = btn
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 0, 14)
+        lbl.Position = UDim2.new(0, 0, 1, -18)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = label
+        lbl.TextColor3 = Theme.TextDim
+        SetFont(lbl, "Title")
+        lbl.TextSize = 9
+        lbl.ZIndex = 151
+        lbl.Parent = btn
+
+        local active = false
+        local function refresh()
+            TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+                BackgroundColor3 = active and Theme.Accent or Theme.Card,
+                BackgroundTransparency = active and 0 or 0.15,
+            }):Play()
+            TweenService:Create(glow, TweenInfo.new(0.2), {
+                Color = active and Theme.AccentSoft or Theme.Border,
+                Transparency = active and 0.1 or 0.3,
+            }):Play()
+            iconLbl.TextColor3 = active and Color3.new(1,1,1) or Theme.Text
+            lbl.TextColor3 = active and Color3.new(1,1,1) or Theme.TextDim
+        end
+        refresh()
+
+        local pressStart = nil
+        local startPos = nil
+        local moved = false
+        local holding = false
+
+        btn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch
+                or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                pressStart = input.Position
+                startPos = btn.Position
+                moved = false
+                holding = false
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if not pressStart then return end
+            if input.UserInputType ~= Enum.UserInputType.Touch
+                and input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+            local d = input.Position - pressStart
+            if math.abs(d.X) > 8 or math.abs(d.Y) > 8 then
+                moved = true
+                btn.Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + d.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + d.Y
+                )
+                local vp = workspace.CurrentCamera.ViewportSize
+                local ax = math.clamp(btn.AbsolutePosition.X, 4, vp.X - btn.AbsoluteSize.X - 4)
+                local ay = math.clamp(btn.AbsolutePosition.Y, 4, vp.Y - btn.AbsoluteSize.Y - 4)
+                btn.Position = UDim2.new(0, ax, 0, ay)
+            elseif not holding and (math.abs(d.X) > 2 or math.abs(d.Y) > 2) then
+                holding = true
+                active = true
+                refresh()
+                if onActivate then onActivate() end
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.Touch
+                and input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+            if not pressStart then return end
+
+            if not moved and not holding then
+                active = not active
+                refresh()
+                if active then
+                    if onActivate then onActivate() end
+                else
+                    if onDeactivate then onDeactivate() end
+                end
+            elseif holding then
+                active = false
+                refresh()
+                if onDeactivate then onDeactivate() end
+            end
+
+            local ax = btn.AbsolutePosition.X
+            local ay = btn.AbsolutePosition.Y
+            if label == "AIM" then
+                Config.AimBtnX = math.floor(ax)
+                Config.AimBtnY = math.floor(ay)
+            else
+                Config.LockBtnX = math.floor(ax)
+                Config.LockBtnY = math.floor(ay)
+            end
+
+            pressStart = nil
+            startPos = nil
+        end)
+
+        return btn
+    end
+
+    local vp = workspace.CurrentCamera.ViewportSize
+    local defAimX = Config.AimBtnX > 0 and Config.AimBtnX or (vp.X - 84)
+    local defAimY = Config.AimBtnY > 0 and Config.AimBtnY or math.floor(vp.Y * 0.5)
+    local defLockX = Config.LockBtnX > 0 and Config.LockBtnX or (vp.X - 84)
+    local defLockY = Config.LockBtnY > 0 and Config.LockBtnY or math.floor(vp.Y * 0.5 + 80)
+
+    AimBtn = CreateFloatingBtn("🎯", "AIM", defAimX, defAimY,
+        function()
+            Config.Aimbot = true
             State.MobileAim = true
             if Config.Aimbot or Config.CamLock then
                 local plr, part = GetTarget()
                 if plr and part then LockTarget(plr, part) end
             end
             if Config.Zoom then ApplyZoom(Config.ZoomFOV) end
-            TweenService:Create(MobileAimBtn, TweenInfo.new(0.12), {
-                BackgroundTransparency = 0.05,
-                Size = UDim2.new(0, 96, 0, 96),
-                Position = UDim2.new(1, -112, 0.5, 56),
-            }):Play()
-            TweenService:Create(mGlow, TweenInfo.new(0.12), { Transparency = 0.1 }):Play()
-        end
-    end)
-
-    MobileAimBtn.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
+        end,
+        function()
+            Config.Aimbot = false
             State.MobileAim = false
-            if not State.HoldLMB and not State.HoldRMB then UnlockTarget() end
+            if not Config.CamLock then UnlockTarget() end
             if Config.Zoom then ApplyZoom(Config.NormalFOV or 70) end
-            TweenService:Create(MobileAimBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
-                BackgroundTransparency = 0.2,
-                Size = UDim2.new(0, 88, 0, 88),
-                Position = UDim2.new(1, -108, 0.5, 60),
-            }):Play()
-            TweenService:Create(mGlow, TweenInfo.new(0.2), { Transparency = 0.5 }):Play()
         end
-    end)
+    )
 
-    task.spawn(function()
-        while MobileAimBtn.Parent do
-            if MobileAimBtn.Visible then
-                TweenService:Create(mGlow, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Transparency = 0.15 }):Play()
-                task.wait(0.9)
-                TweenService:Create(mGlow, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Transparency = 0.6 }):Play()
-                task.wait(0.9)
-            else task.wait(0.5) end
+    LockBtn = CreateFloatingBtn("🔒", "LOCK", defLockX, defLockY,
+        function()
+            Config.CamLock = true
+            State.MobileAim = true
+            if Config.Aimbot or Config.CamLock then
+                local plr, part = GetTarget()
+                if plr and part then LockTarget(plr, part) end
+            end
+        end,
+        function()
+            Config.CamLock = false
+            State.MobileAim = false
+            if not Config.Aimbot then UnlockTarget() end
         end
-    end)
+    )
 end
 
-UpdateMobileAimBtn()
-
+-- ============================================================
 -- FAB REOPEN
+-- ============================================================
 local ReopenBtn = Instance.new("TextButton")
 ReopenBtn.Size = UDim2.new(0, 62, 0, 62)
 ReopenBtn.Position = UDim2.new(0, 24, 0, 24)
@@ -1634,6 +1742,7 @@ ReopenBtn.BorderSizePixel = 0
 ReopenBtn.Text = ""
 ReopenBtn.AutoButtonColor = false
 ReopenBtn.Visible = false
+ReopenBtn.ZIndex = 140
 ReopenBtn.Parent = ScreenGui
 Instance.new("UICorner", ReopenBtn).CornerRadius = UDim.new(1, 0)
 
@@ -1684,3 +1793,138 @@ ReopenBtn.MouseLeave:Connect(function()
 end)
 
 local function ShowPanel() Main.Visible = true; ReopenBtn.Visible = false end
+local function HidePanel() Main.Visible = false; ReopenBtn.Visible = true end
+
+ReopenBtn.MouseButton1Click:Connect(ShowPanel)
+
+-- MINIMIZE / CLOSE
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    MinBtn.Text = minimized and "+" or "−"
+    Content.Visible = not minimized
+    NavBar.Visible = not minimized
+    pageTitle.Visible = not minimized
+    pageSub.Visible = not minimized
+    local target = minimized and UDim2.new(0, Main.Size.X.Offset, 0, HEADER_H) or UDim2.new(0, Main.Size.X.Offset, 0, Main.Size.Y.Offset)
+    TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = target }):Play()
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    SaveConfigNow()
+    HidePanel()
+end)
+
+-- ============================================================
+-- 📱 DRAG (mobile + PC) + RESIZE GRIP
+-- ============================================================
+local drag = { active = false, start = nil, base = nil }
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        drag.active = true
+        drag.start = input.Position
+        drag.base = Main.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if not drag.active then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    local d = input.Position - drag.start
+    Main.Position = UDim2.new(
+        drag.base.X.Scale,
+        drag.base.X.Offset + d.X,
+        drag.base.Y.Scale,
+        drag.base.Y.Offset + d.Y
+    )
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        drag.active = false
+    end
+end)
+
+local ResizeGrip = Instance.new("TextButton")
+ResizeGrip.Name = "71ResizeGrip"
+ResizeGrip.Size = UDim2.new(0, 30, 0, 30)
+ResizeGrip.AnchorPoint = Vector2.new(1, 1)
+ResizeGrip.Position = UDim2.new(1, -10, 1, -10)
+ResizeGrip.BackgroundColor3 = Theme.Accent
+ResizeGrip.BackgroundTransparency = 0.35
+ResizeGrip.BorderSizePixel = 0
+ResizeGrip.Text = ""
+ResizeGrip.AutoButtonColor = false
+ResizeGrip.Active = true
+ResizeGrip.ZIndex = 200
+ResizeGrip.Parent = Main
+Instance.new("UICorner", ResizeGrip).CornerRadius = UDim.new(1, 0)
+
+local rgStroke = Instance.new("UIStroke", ResizeGrip)
+rgStroke.Color = Color3.new(1, 1, 1)
+rgStroke.Thickness = 1.5
+rgStroke.Transparency = 0.35
+
+for i = 1, 3 do
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(0, 7, 0, 2)
+    line.AnchorPoint = Vector2.new(1, 1)
+    line.Position = UDim2.new(1, -4 - (i - 1) * 5, 1, -4 - (i - 1) * 5)
+    line.Rotation = -45
+    line.BackgroundColor3 = Color3.new(1, 1, 1)
+    line.BorderSizePixel = 0
+    line.ZIndex = 201
+    line.Parent = ResizeGrip
+    Instance.new("UICorner", line).CornerRadius = UDim.new(1, 0)
+end
+
+local resizeState = { active = false, start = nil, base = nil }
+local function beginResize(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        resizeState.active = true
+        resizeState.start = input.Position
+        resizeState.base = Main.Size
+        TweenService:Create(ResizeGrip, TweenInfo.new(0.12), { BackgroundTransparency = 0.05 }):Play()
+    end
+end
+ResizeGrip.InputBegan:Connect(beginResize)
+UserInputService.InputChanged:Connect(function(input)
+    if not resizeState.active then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    local d = input.Position - resizeState.start
+    local newW = math.clamp(resizeState.base.X.Offset + d.X, MIN_W, vpSize.X - 20)
+    local newH = math.clamp(resizeState.base.Y.Offset + d.Y, MIN_H, vpSize.Y - 20)
+    Main.Size = UDim2.new(0, newW, 0, newH)
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        if resizeState.active then
+            Config.PanelW = math.floor(Main.Size.X.Offset)
+            Config.PanelH = math.floor(Main.Size.Y.Offset)
+        end
+        resizeState.active = false
+        TweenService:Create(ResizeGrip, TweenInfo.new(0.2), { BackgroundTransparency = 0.35 }):Play()
+    end
+end)
+ResizeGrip.MouseEnter:Connect(function()
+    TweenService:Create(ResizeGrip, TweenInfo.new(0.15), { BackgroundTransparency = 0.1 }):Play()
+end)
+ResizeGrip.MouseLeave:Connect(function()
+    if not resizeState.active then
+        TweenService:Create(ResizeGrip, TweenInfo.new(0.15), { BackgroundTransparency = 0.35 }):Play()
+    end
+end)
+
+-- 🎹 Toggle panneau (PC uniquement)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        if Main.Visible then HidePanel() else ShowPanel() end
+    end
+end)
+
+print("[71 VS] V41.3 FLOAT+ — Config: " .. CONFIG_FILE .. (IsMobile and " [MOBILE]" or " [PC]"))
